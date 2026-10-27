@@ -156,7 +156,7 @@ function Index() {
   const { isAdmin, user } = useAuth();
   const [i, setI] = useState(0);
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
-  const popularAnime = data.filter(isCurrentPopularAnime).slice(0, 12);\n  const featured = (popularAnime.length ? popularAnime : data).slice(0, 8);
+  const popularAnime = data.filter(isCurrentPopularAnime).slice(0, 12);\n  const featured = popularAnime.slice(0, 8);
   const activeIndex = featured.length ? i % featured.length : 0;
   const current = featured[activeIndex];
 
