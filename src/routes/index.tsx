@@ -175,7 +175,7 @@ function Index() {
 
   return (
     <main>
-      <section className="mx-auto max-w-[1900px] px-4 pb-8 pt-6 sm:px-6 md:pt-8">
+      <section className="relative mx-auto max-w-[1900px] px-4 pb-8 pt-6 sm:px-6 md:pt-8">
         {current ? (
           <>
             <Hero key={current.id} s={current} />
