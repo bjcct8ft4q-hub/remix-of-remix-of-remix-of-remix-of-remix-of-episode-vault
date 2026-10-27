@@ -82,6 +82,22 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
       page++;
       if (page <= lastPage) await new Promise((resolve) => setTimeout(resolve, 400));
     } while (page <= lastPage);
+    // Some catalogue providers expose a total episode count but omit individual episode
+    // records. Fill any gaps with numbered placeholders so the catalogue remains usable.
+    // These are metadata entries only; they do not include or imply video streams.
+    for (let number = 1; number <= discoveredEpisodeCount; number++) {
+      if (number > 2000) break;
+      if (known.has(number)) continue;
+      rows.push({
+        series_id: seriesId,
+        number,
+        season_number: 1,
+        season_episode_number: number,
+        title: "Episode " + number,
+        released: true,
+      });
+      known.add(number);
+    }
     if (rows.length) {
       const { error } = await db.from("episode_catalog").insert(rows);
       if (error) throw new Error("Series was saved, but episode import failed: " + error.message);
