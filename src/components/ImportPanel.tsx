@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { LoaderCircle, RefreshCw, Flame, TrendingUp, CalendarClock, Radio, Layers3, History, ChevronDown, Database, Film, CircleHelp, Search, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { importStats, runAniListImport } from "@/lib/anilist.functions";
-import { searchAnimeDoc, importAnimeDocEpisodes, attachEpisodeStream } from "@/lib/animedoc.functions";
+import { searchAnimeDoc, importAnimeDocEpisodes, attachEpisodeStream, discoverAuthorizedYouTubeEpisodes } from "@/lib/animedoc.functions";
 import { seriesListQuery } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +24,7 @@ export function ImportPanel() {
   const [streamEpisodeNumber, setStreamEpisodeNumber] = useState("1");
   const [streamUrl, setStreamUrl] = useState("");
   const [streamTitle, setStreamTitle] = useState("");
+  const [discoveryLimit, setDiscoveryLimit] = useState("50");
 
   const importSpecific = async () => {
     if (!selectedSource) return;
@@ -56,6 +57,20 @@ export function ImportPanel() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Tenrai search failed");
     } finally { setSearchingAnime(false); }
+  };
+
+  const discoverVideos = async () => {
+    if (!streamSeriesId) return;
+    setBusy("discover");
+    try {
+      const result = await discoverAuthorizedYouTubeEpisodes({ data: { seriesId: streamSeriesId, maxEpisodes: Number(discoveryLimit) } });
+      toast.success(`${result.title}: scanned ${result.scanned} missing episodes; connected ${result.attached} official YouTube videos`);
+      if (result.skipped.length) toast.info(`No matching video found for episodes: ${result.skipped.join(", ")}`);
+      await qc.invalidateQueries({ queryKey: ["series"] });
+      await qc.invalidateQueries({ queryKey: ["import-stats"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Authorized YouTube discovery failed");
+    } finally { setBusy(null); void refetch(); }
   };
 
   const attachStream = async (event: React.FormEvent) => {
@@ -184,6 +199,18 @@ export function ImportPanel() {
         <div className="mb-3">
           <h3 className="font-bold">Connect a playable video</h3>
           <p className="mt-1 text-sm text-muted-foreground">For videos you own or are authorized to stream, add a secure HTTPS MP4, WebM, or HLS (.m3u8) URL to an imported episode. This connects the episode to Streamly’s existing player; catalogue metadata alone does not include video.</p>
+        </div>
+        <div className="mb-4 rounded-lg border border-border bg-background/60 p-3">
+          <h4 className="text-sm font-semibold">Auto-find official YouTube episodes</h4>
+          <p className="mt-1 text-xs text-muted-foreground">Searches only channel IDs you have explicitly configured as authorized sources. Existing playable episodes are left untouched.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <label className="grid gap-1 text-xs text-muted-foreground">Maximum missing episodes to scan
+              <select value={discoveryLimit} onChange={(event) => setDiscoveryLimit(event.target.value)} className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+                <option value="10">10 episodes</option><option value="25">25 episodes</option><option value="50">50 episodes</option><option value="100">100 episodes</option>
+              </select>
+            </label>
+            <div className="flex items-end"><Button type="button" variant="outline" disabled={!!busy || !streamSeriesId} onClick={() => void discoverVideos()}>{busy === "discover" ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}{busy === "discover" ? "Searching official channels…" : "Find official videos"}</Button></div>
+          </div>
         </div>
         <form onSubmit={(event) => void attachStream(event)} className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-muted-foreground">Anime series
