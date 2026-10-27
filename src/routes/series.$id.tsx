@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Play, Star } from "lucide-react";
-import { seriesQuery } from "@/lib/queries";
+import { Play, Star, ChevronDown, Layers } from "lucide-react";
+import { seriesListQuery, seriesQuery } from "@/lib/queries";
 import { useSignedUrl } from "@/lib/media";
 
 export const Route = createFileRoute("/series/$id")({
@@ -31,6 +31,41 @@ function Row({ k, v }: { k: string; v?: string | null | undefined }) {
 function SeriesPage() {
   const { id } = Route.useParams();
   const { data: s, isLoading } = useQuery(seriesQuery(id));
+  const { data: catalogue = [] } = useQuery(seriesListQuery());
+  const { data: franchiseRelations = [] } = useQuery({
+    queryKey: ["anilist-relations", s?.anilist_id],
+    enabled: !!s?.anilist_id,
+    staleTime: 1000 * 60 * 60,
+    queryFn: async () => {
+      const response = await fetch("https://graphql.anilist.co", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({
+          query: `query ($id: Int) { Media(id: $id, type: ANIME) { relations { edges { relationType node { id type format title { english romaji } startDate { year } } } } } }`,
+          variables: { id: s!.anilist_id },
+        }),
+      });
+      if (!response.ok) throw new Error("Could not load related seasons");
+      const json = await response.json();
+      return (json.data?.Media?.relations?.edges ?? [])
+        .filter((edge: { node: { type: string; id: number } }) => edge.node.type === "ANIME")
+        .map((edge: { relationType: string; node: { id: number; title: { english: string | null; romaji: string | null }; startDate: { year: number | null }; format: string | null } }) => ({
+          relationType: edge.relationType,
+          anilistId: edge.node.id,
+          title: edge.node.title.english || edge.node.title.romaji || "Related anime",
+          year: edge.node.startDate.year,
+          format: edge.node.format,
+        }));
+    },
+  });
+  const relatedSeasons = [
+    ...(s?.anilist_id ? [{ id: s.id, anilistId: s.anilist_id, title: s.title, year: s.start_date ? Number(s.start_date.slice(0, 4)) : null, current: true }] : []),
+    ...franchiseRelations.flatMap((relation) => {
+      const local = catalogue.find((item) => item.anilist_id === relation.anilistId);
+      return local ? [{ id: local.id, anilistId: relation.anilistId, title: local.title, year: relation.year, current: false }] : [];
+    }),
+  ].filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
+   .sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
   const cover = useSignedUrl(s?.cover_url);
   const banner = useSignedUrl(s?.banner_url || s?.cover_url);
   if (isLoading) return <main className="pt-32 text-center text-muted-foreground">Loading...</main>;
@@ -48,6 +83,18 @@ function SeriesPage() {
           </div>
           <div className="flex-1">
             <h1 className="text-4xl font-black md:text-5xl">{s.title}</h1>
+            {relatedSeasons.length > 1 && (
+              <div className="mt-4 max-w-md">
+                <label htmlFor="anime-season" className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground"><Layers className="h-4 w-4 text-primary" />Choose season or related series</label>
+                <div className="relative">
+                  <select id="anime-season" value={s.id} onChange={(event) => { const target = relatedSeasons.find((item) => item.id === event.target.value); if (target) window.location.href = `/series/${target.id}`; }} className="w-full appearance-none rounded-md border border-border bg-card px-3 py-3 pr-10 text-sm font-semibold text-foreground outline-none focus:border-primary">
+                    {relatedSeasons.map((item, index) => <option key={item.id} value={item.id}>{item.title}{item.year ? ` (${item.year})` : ""}{item.current ? " — Current page" : ""}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">Only related series already imported into Streamly are listed here.</p>
+              </div>
+            )}
             <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
               <span className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-primary-foreground"><Star className="h-3 w-3 fill-current" />{s.score ?? "N/A"}</span>
               <span className="rounded bg-secondary px-2 py-1">{s.type}</span>
