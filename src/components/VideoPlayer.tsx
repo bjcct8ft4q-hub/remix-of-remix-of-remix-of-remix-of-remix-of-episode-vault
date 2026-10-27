@@ -29,6 +29,8 @@ export const VideoPlayer = forwardRef<HTMLVideoElement | null, Props>(function V
   const [idle, setIdle] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const isHls = /\.m3u8(\?|$)/i.test(src);
+  const isDirectVideo = /\.(mp4|webm|ogv)(\?|#|$)/i.test(src) || isHls;
+  const isEmbed = !isDirectVideo;
   useEffect(() => {
     const el = video.current;
     if (!isHls || !el) return;
@@ -84,6 +86,21 @@ export const VideoPlayer = forwardRef<HTMLVideoElement | null, Props>(function V
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
+
+  if (isEmbed) {
+    return <div ref={wrap} className="relative h-full w-full bg-overlay">
+      <iframe
+        key={src}
+        src={src}
+        title={fileName ? `Video player — ${fileName}` : "Video player"}
+        className="h-full w-full border-0"
+        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"
+      />
+    </div>;
+  }
 
   const pct = dur ? (time / dur) * 100 : 0;
   const btn = "flex h-8 w-8 items-center justify-center rounded-full text-foreground/90 transition hover:bg-foreground/10 hover:text-primary";

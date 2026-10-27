@@ -103,12 +103,63 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
       if (error) throw new Error("Series was saved, but episode import failed: " + error.message);
     }
     const finalEpisodeCount = Math.max(discoveredEpisodeCount, ...Array.from(known));
+
+    // Optional automatic playback integration for a video service the site owner is
+    // authorized to use. Configure STREAMLY_AUTHORIZED_EMBED_TEMPLATE on the server
+    // with {malId} and {episode} placeholders. No third-party stream is guessed.
+    let playableEpisodesAdded = 0;
+    const embedTemplate = process.env.STREAMLY_AUTHORIZED_EMBED_TEMPLATE?.trim();
+    if (embedTemplate) {
+      if (!embedTemplate.includes("{malId}") || !embedTemplate.includes("{episode}")) {
+        throw new Error("STREAMLY_AUTHORIZED_EMBED_TEMPLATE must include {malId} and {episode} placeholders.");
+      }
+      if (!/^https:\/\//i.test(embedTemplate)) {
+        throw new Error("STREAMLY_AUTHORIZED_EMBED_TEMPLATE must use HTTPS.");
+      }
+      const playableRows = [];
+      for (let number = 1; number <= finalEpisodeCount && number <= 2000; number++) {
+        const url = embedTemplate
+          .replaceAll("{malId}", String(animeId))
+          .replaceAll("{episode}", String(number));
+        let parsed: URL;
+        try { parsed = new URL(url); } catch { throw new Error("The configured authorized embed template produced an invalid URL."); }
+        if (parsed.protocol !== "https:") throw new Error("The configured embed template must generate HTTPS URLs.");
+        const catalogEpisode = rows.find((row) => row.number === number);
+        playableRows.push({
+          series_id: seriesId,
+          number,
+          title: catalogEpisode?.title || "Episode " + number,
+          air_date: null,
+          thumbnail_path: cover,
+          video_path: url,
+        });
+      }
+      if (playableRows.length) {
+        const { data: existingPlayable, error: playableLookupError } = await db
+          .from("episodes").select("id,number").eq("series_id", seriesId);
+        if (playableLookupError) throw new Error("Episodes were imported, but existing playable entries could not be checked: " + playableLookupError.message);
+        const playableByNumber = new Map((existingPlayable || []).map((row: {id:string;number:number}) => [row.number, row.id]));
+        for (const item of playableRows) {
+          const existingId = playableByNumber.get(item.number);
+          const result = existingId
+            ? await db.from("episodes").update({ title: item.title, video_path: item.video_path }).eq("id", existingId)
+            : await db.from("episodes").insert(item);
+          if (result.error) throw new Error("Episode metadata imported, but automatic authorized player setup failed for episode " + item.number + ": " + result.error.message);
+          playableEpisodesAdded++;
+        }
+      }
+    }
     if (finalEpisodeCount > 0) {
       const { error } = await db.from("series").update({ total_episodes: finalEpisodeCount }).eq("id", seriesId);
       if (error) throw new Error("Episodes were imported, but the total episode count could not be updated: " + error.message);
     }
     if (rows.length === 0 && known.size === 0) throw new Error("Tenrai returned no episode records for this anime. Its metadata was saved, but no episode entries were available to import.");
-    return { title, seriesAdded, episodesAdded: rows.length, episodeCount: finalEpisodeCount, seriesId, note: "Tenrai provides anime and episode information, not video streams. Add an authorised video URL or upload a video separately for each playable episode." };
+    return {
+      title, seriesAdded, episodesAdded: rows.length, episodeCount: finalEpisodeCount, seriesId, playableEpisodesAdded,
+      note: embedTemplate
+        ? `Automatic authorized player URLs were configured for ${playableEpisodesAdded} episode entries. Confirm your provider grants playback rights and supports these URLs.`
+        : "Episode information was imported. To automate playback, configure STREAMLY_AUTHORIZED_EMBED_TEMPLATE on the server with your authorized provider's URL pattern, using {malId} and {episode}. Without that setting, Streamly will not invent video sources.",
+    };
   });
 
 // Attach a stream URL that the site owner is authorised to use to an imported catalogue episode.

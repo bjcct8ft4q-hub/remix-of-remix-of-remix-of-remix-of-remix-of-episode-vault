@@ -307,7 +307,7 @@ function EpisodeManager({ seriesId }: { seriesId: string }) {
         toast.success(`Streaming link added to episode ${n}`); f.reset(); qc.invalidateQueries({ queryKey: ["series"] });
       }}>
         <L t="Episode #"><input name="n" type="number" min="1" className={`${inputCls} w-24`} placeholder={String(next)} /></L>
-        <div className="min-w-0 flex-1"><L t="Authorised streaming link (.m3u8 or .mp4)"><input name="url" type="url" className={inputCls} placeholder="https://…/index.m3u8" /></L></div>
+        <div className="min-w-0 flex-1"><L t="Authorised video or embed URL"><input name="url" type="url" className={inputCls} placeholder="https://…/video.m3u8 or provider embed URL" /></L></div>
         <Button type="submit" variant="outline" className="h-11">Add link</Button>
       </form>
       <ul className="divide-y divide-border">
