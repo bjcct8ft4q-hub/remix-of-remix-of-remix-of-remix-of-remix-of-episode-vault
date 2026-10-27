@@ -51,7 +51,8 @@ function SeriesPage() {
             <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
               <span className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-primary-foreground"><Star className="h-3 w-3 fill-current" />{s.score ?? "N/A"}</span>
               <span className="rounded bg-secondary px-2 py-1">{s.type}</span>
-              <span className="rounded bg-secondary px-2 py-1">{s.episodes.length} episodes</span>
+              <span className="rounded bg-secondary px-2 py-1">{Math.max(s.episodes.length, s.total_episodes ?? 0, s.episode_catalog.length)} episodes</span>
+              {s.episodes.length === 0 && s.episode_catalog.length > 0 && <span className="rounded bg-muted px-2 py-1 text-muted-foreground">No videos yet</span>}
             </div>
             <p className="mt-4 max-w-2xl text-foreground/85">{s.description}</p>
             {first && (
@@ -84,7 +85,14 @@ function SeriesPage() {
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{e.title || `Episode ${e.number}`}</span><span className="shrink-0 text-[10px] font-bold text-primary">SUB{e.dub_video_path ? " · DUB" : ""}</span>
             </Link>
           ))}
-          {!s.episodes.length && <p className="text-muted-foreground">No episodes uploaded yet.</p>}
+          {s.episode_catalog.filter((c) => !s.episodes.some((e) => e.number === c.number)).map((c) => (
+            <div key={c.id} aria-disabled="true" className="flex items-center gap-3 rounded-md border border-dashed border-border bg-card/40 p-3 opacity-70">
+              <span className="rounded bg-muted px-2 py-1 text-xs font-black text-muted-foreground">EP {c.number}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-muted-foreground">{c.title || `Episode ${c.number}`}</span>
+              <span className="shrink-0 text-[10px] font-bold uppercase text-muted-foreground">{c.released ? "Video not available yet" : "Not aired yet"}</span>
+            </div>
+          ))}
+          {!s.episodes.length && !s.episode_catalog.length && <p className="text-muted-foreground">No episodes uploaded yet.</p>}
         </div>
       </section>
     </main>

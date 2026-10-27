@@ -28,6 +28,19 @@ export const VideoPlayer = forwardRef<HTMLVideoElement | null, Props>(function V
   const [full, setFull] = useState(false);
   const [idle, setIdle] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const isHls = /\.m3u8(\?|$)/i.test(src);
+  useEffect(() => {
+    const el = video.current;
+    if (!isHls || !el) return;
+    if (el.canPlayType("application/vnd.apple.mpegurl")) { el.src = src; return; }
+    let hls: { destroy: () => void } | undefined; let dead = false;
+    void import("hls.js").then(({ default: Hls }) => {
+      if (dead || !Hls.isSupported()) return;
+      const h = new Hls(); hls = h; h.loadSource(src); h.attachMedia(el);
+      h.on(Hls.Events.ERROR, (_e, d) => { if (d.fatal) onError?.(); });
+    });
+    return () => { dead = true; hls?.destroy(); };
+  }, [src, isHls, onError]);
 
   useEffect(() => {
     const f = () => setFull(document.fullscreenElement === wrap.current);
@@ -78,7 +91,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement | null, Props>(function V
 
   return (
     <div ref={wrap} onMouseMove={wake} onMouseLeave={() => setIdle(true)} className={`group relative h-full w-full bg-overlay ${showUi ? "" : "cursor-none"}`}>
-      <video ref={video} src={src} poster={poster} autoPlay={autoPlay} playsInline preload="metadata" className="h-full w-full" onClick={toggle} onDoubleClick={fs}
+      <video ref={video} src={isHls ? undefined : src} poster={poster} autoPlay={autoPlay} playsInline preload="metadata" className="h-full w-full" onClick={toggle} onDoubleClick={fs}
         onPlay={() => { setPlaying(true); wake(); }} onPause={() => setPlaying(false)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onProgress={(e) => { const b = e.currentTarget.buffered; if (b.length) setBuffered(b.end(b.length - 1)); }}

@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as BrowseRouteImport } from './routes/browse'
 import { Route as SeriesIdRouteImport } from './routes/series.$id'
 import { Route as WatchEpisodeIdRouteImport } from './routes/watch.$episodeId'
+import { Route as ApiPublicJobsAnilistSyncRouteImport } from './routes/api/public/jobs/anilist-sync'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,12 @@ const WatchEpisodeIdRoute = WatchEpisodeIdRouteImport.update({
   path: '/watch/$episodeId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicJobsAnilistSyncRoute =
+  ApiPublicJobsAnilistSyncRouteImport.update({
+    id: '/api/public/jobs/anilist-sync',
+    path: '/api/public/jobs/anilist-sync',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +54,7 @@ export interface FileRoutesByFullPath {
   '/browse': typeof BrowseRoute
   '/series/$id': typeof SeriesIdRoute
   '/watch/$episodeId': typeof WatchEpisodeIdRoute
+  '/api/public/jobs/anilist-sync': typeof ApiPublicJobsAnilistSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +62,7 @@ export interface FileRoutesByTo {
   '/browse': typeof BrowseRoute
   '/series/$id': typeof SeriesIdRoute
   '/watch/$episodeId': typeof WatchEpisodeIdRoute
+  '/api/public/jobs/anilist-sync': typeof ApiPublicJobsAnilistSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,12 +71,25 @@ export interface FileRoutesById {
   '/browse': typeof BrowseRoute
   '/series/$id': typeof SeriesIdRoute
   '/watch/$episodeId': typeof WatchEpisodeIdRoute
+  '/api/public/jobs/anilist-sync': typeof ApiPublicJobsAnilistSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/browse' | '/series/$id' | '/watch/$episodeId'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/browse'
+    | '/series/$id'
+    | '/watch/$episodeId'
+    | '/api/public/jobs/anilist-sync'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/browse' | '/series/$id' | '/watch/$episodeId'
+  to:
+    | '/'
+    | '/admin'
+    | '/browse'
+    | '/series/$id'
+    | '/watch/$episodeId'
+    | '/api/public/jobs/anilist-sync'
   id:
     | '__root__'
     | '/'
@@ -75,6 +97,7 @@ export interface FileRouteTypes {
     | '/browse'
     | '/series/$id'
     | '/watch/$episodeId'
+    | '/api/public/jobs/anilist-sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -83,6 +106,7 @@ export interface RootRouteChildren {
   BrowseRoute: typeof BrowseRoute
   SeriesIdRoute: typeof SeriesIdRoute
   WatchEpisodeIdRoute: typeof WatchEpisodeIdRoute
+  ApiPublicJobsAnilistSyncRoute: typeof ApiPublicJobsAnilistSyncRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -122,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WatchEpisodeIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/anilist-sync': {
+      id: '/api/public/jobs/anilist-sync'
+      path: '/api/public/jobs/anilist-sync'
+      fullPath: '/api/public/jobs/anilist-sync'
+      preLoaderRoute: typeof ApiPublicJobsAnilistSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -131,6 +162,7 @@ const rootRouteChildren: RootRouteChildren = {
   BrowseRoute: BrowseRoute,
   SeriesIdRoute: SeriesIdRoute,
   WatchEpisodeIdRoute: WatchEpisodeIdRoute,
+  ApiPublicJobsAnilistSyncRoute: ApiPublicJobsAnilistSyncRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
