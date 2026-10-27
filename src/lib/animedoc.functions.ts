@@ -87,3 +87,45 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
     }
     return { title, seriesAdded, episodesAdded: rows.length, episodeCount, seriesId, note: "Jikan provides anime and episode information, not video streams. Add an authorised video URL or upload a video separately for each playable episode." };
   });
+
+// Attach a stream URL that the site owner is authorised to use to an imported catalogue episode.
+// Direct MP4/WebM and HLS (.m3u8) URLs are supported by the existing player.
+export const attachEpisodeStream = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({
+    seriesId: z.string().uuid(),
+    episodeNumber: z.number().int().min(1).max(2000),
+    videoUrl: z.string().trim().url().max(4000),
+    title: z.string().trim().max(250).optional(),
+  }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const url = new URL(data.videoUrl);
+    if (url.protocol !== "https:") throw new Error("Use a secure HTTPS video URL.");
+    const db = context.supabase as any;
+    const { data: series, error: seriesError } = await db.from("series").select("id,title").eq("id", data.seriesId).maybeSingle();
+    if (seriesError) throw new Error("Could not find the series: " + seriesError.message);
+    if (!series) throw new Error("Series not found.");
+    const { data: catalog, error: catalogError } = await db.from("episode_catalog").select("title,air_date,thumbnail_path,released").eq("series_id", data.seriesId).eq("number", data.episodeNumber).maybeSingle();
+    if (catalogError) throw new Error("Could not find the catalogue episode: " + catalogError.message);
+    if (!catalog) throw new Error("Import this episode into the catalogue first.");
+    if (!catalog.released) throw new Error("This episode is not marked as released yet.");
+    const { data: existing, error: existingError } = await db.from("episodes").select("id").eq("series_id", data.seriesId).eq("number", data.episodeNumber).maybeSingle();
+    if (existingError) throw new Error("Could not check existing playable episode: " + existingError.message);
+    const values = {
+      series_id: data.seriesId,
+      number: data.episodeNumber,
+      title: data.title?.trim() || catalog.title || "Episode " + data.episodeNumber,
+      air_date: catalog.air_date,
+      thumbnail_path: catalog.thumbnail_path,
+      video_path: url.toString(),
+    };
+    if (existing) {
+      const { error } = await db.from("episodes").update(values).eq("id", existing.id);
+      if (error) throw new Error("Could not update the playable episode: " + error.message);
+    } else {
+      const { error } = await db.from("episodes").insert(values);
+      if (error) throw new Error("Could not create the playable episode: " + error.message);
+    }
+    return { title: series.title, episodeNumber: data.episodeNumber, updated: !!existing };
+  });
