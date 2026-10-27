@@ -9,7 +9,7 @@ export const runAniListImport = createServerFn({ method: "POST" })
     const { data: isAdmin } = await context.supabase.rpc("has_role", { _user_id: context.userId, _role: "admin" });
     if (!isAdmin) throw new Error("Admins only");
     const { importCore } = await import("@/lib/anilist.server");
-    return importCore(data);
+    return importCore(data, context.supabase);
   });
 
 export const importStats = createServerFn({ method: "GET" })
