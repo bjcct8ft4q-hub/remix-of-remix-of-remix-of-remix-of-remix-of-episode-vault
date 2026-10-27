@@ -65,7 +65,7 @@ export const importTmdbSeasons = createServerFn({ method: "POST" })
     const { data: existingCatalog, error: catalogError } = await dbAny.from("episode_catalog").select("id,number,season_number,season_episode_number,import_locked").eq("series_id", series.id).order("number", { ascending: true });
     if (catalogError) throw new Error("Could not read existing episodes: " + catalogError.message);
     let nextNumber = Math.max(0, ...(existingCatalog ?? []).map((row: { number: number }) => row.number)) + 1;
-    const seasons = (details.seasons ?? []).filter((s) => s.season_number >= 0).sort((a, b) => a.season_number - b.season_number);
+    const seasons = (details.seasons ?? []).filter((s) => s.season_number >= 0).sort((a, b) => (a.season_number === 0 ? 1 : 0) - (b.season_number === 0 ? 1 : 0) || a.season_number - b.season_number);
     for (const season of seasons) {
       const seasonData = await tmdb<{ episodes?: { id: number; episode_number: number; name?: string; overview?: string; air_date?: string | null; still_path?: string | null }[] }>(`/tv/${data.tmdbId}/season/${season.season_number}`);
       for (const ep of seasonData.episodes ?? []) {
@@ -120,6 +120,7 @@ export const importTmdbSeasons = createServerFn({ method: "POST" })
           }
         }
       }
+      if (season.season_number === 1) nextNumber = Math.max(nextNumber, (seasonData.episodes ?? []).length + 1);
     }
     return { seriesTitle: details.name || series.title, seasons: seasons.length, checked, added, updated };
   });
