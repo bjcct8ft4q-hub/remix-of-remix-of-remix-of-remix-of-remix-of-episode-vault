@@ -24,6 +24,30 @@ export const Route = createFileRoute("/")({
 
 type S = SeriesRow;
 
+// Keep the homepage focused on currently popular anime. Entries appear when they
+// exist in the catalogue; the admin can add further titles as they become available.
+const currentPopularAnime = [
+  "cyberpunk: edgerunners 2",
+  "cyberpunk edgerunners 2",
+  "black clover 2nd season",
+  "black clover season 2",
+  "black clover",
+  "chainsaw man",
+  "my hero academia",
+  "attack on titan",
+  "jujutsu kaisen",
+  "demon slayer",
+  "solo leveling",
+  "one piece",
+  "the promised neverland",
+  "your name",
+];
+
+function isCurrentPopularAnime(series: S) {
+  const title = series.title.toLocaleLowerCase();
+  return currentPopularAnime.some((name) => title.includes(name));
+}
+
 function Hero({ s }: { s: S }) {
   const img = useSignedUrl(s.banner_url || s.cover_url);
   return (
@@ -132,7 +156,7 @@ function Index() {
   const { isAdmin, user } = useAuth();
   const [i, setI] = useState(0);
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
-  const featured = data.slice(0, 8);
+  const popularAnime = data.filter(isCurrentPopularAnime).slice(0, 12);\n  const featured = (popularAnime.length ? popularAnime : data).slice(0, 8);
   const activeIndex = featured.length ? i % featured.length : 0;
   const current = featured[activeIndex];
 
@@ -176,9 +200,9 @@ function Index() {
 
       <div className="mx-auto grid max-w-[1900px] items-start gap-6 px-4 pb-20 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-12">
-          <Grid title="Latest Episodes" items={data} loading={isLoading} filters />
-          {data.length > 0 && <Row title="Popular Now" items={[...data].sort((a, b) => (b.episodes?.[0]?.count ?? 0) - (a.episodes?.[0]?.count ?? 0))} />}
-          {data.length > 0 && <Grid title="Recently Added" items={[...data].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 12)} />}
+          <Grid title="Popular Anime Right Now" items={popularAnime} loading={isLoading} filters />
+          {popularAnime.length > 0 && <Row title="Popular Anime" items={[...popularAnime].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))} />}
+          {popularAnime.length > 0 && <Grid title="More Popular Anime" items={[...popularAnime].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 6)} />}
         </div>
         <div className="space-y-6">
           <aside className="relative overflow-hidden rounded-lg border border-border bg-card p-4">
