@@ -24,28 +24,21 @@ export const Route = createFileRoute("/")({
 
 type S = SeriesRow;
 
-// Keep the homepage focused on currently popular anime. Entries appear when they
-// exist in the catalogue; the admin can add further titles as they become available.
-const currentPopularAnime = [
-  "cyberpunk: edgerunners 2",
-  "cyberpunk edgerunners 2",
-  "black clover 2nd season",
-  "black clover season 2",
-  "black clover",
-  "chainsaw man",
-  "my hero academia",
-  "attack on titan",
-  "jujutsu kaisen",
-  "demon slayer",
-  "solo leveling",
-  "one piece",
-  "the promised neverland",
-  "your name",
-];
+// Homepage features recent releases first, with a current-year fallback.
+function releaseDate(series: S) {
+  return series.start_date ? new Date(series.start_date) : null;
+}
 
-function isCurrentPopularAnime(series: S) {
-  const title = series.title.toLocaleLowerCase();
-  return currentPopularAnime.some((name) => title.includes(name));
+function isRecentRelease(series: S, days = 30) {
+  const date = releaseDate(series);
+  if (!date || Number.isNaN(date.getTime())) return false;
+  const age = Date.now() - date.getTime();
+  return age >= 0 && age <= days * 24 * 60 * 60 * 1000;
+}
+
+function is2026Release(series: S) {
+  const date = releaseDate(series);
+  return !!date && !Number.isNaN(date.getTime()) && date.getFullYear() === 2026;
 }
 
 function Hero({ s }: { s: S }) {
@@ -200,8 +193,11 @@ function Index() {
   const { isAdmin, user } = useAuth();
   const [i, setI] = useState(0);
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
-  const popularAnime = data.filter(isCurrentPopularAnime).slice(0, 12);
-  const featured = popularAnime.slice(0, 8);
+  const recentReleases = [...data].filter((s) => isRecentRelease(s)).sort((a, b) => +new Date(b.start_date ?? 0) - +new Date(a.start_date ?? 0));
+  const currentYearReleases = [...data].filter(is2026Release).sort((a, b) => +new Date(b.start_date ?? 0) - +new Date(a.start_date ?? 0));
+  const featured = (recentReleases.length ? recentReleases : currentYearReleases.length ? currentYearReleases : [...data].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at))).slice(0, 8);
+  const popularAnime = currentYearReleases.slice(0, 12);
+  const latestEpisodes = data.filter((s) => is2026Release(s) && ((s.episodes?.length ?? 0) > 0 || (s.episodes_count ?? 0) > 0));
   const activeIndex = featured.length ? i % featured.length : 0;
   const current = featured[activeIndex];
 
@@ -252,7 +248,7 @@ function Index() {
 
       <div className="mx-auto grid max-w-[1900px] items-start gap-6 px-4 pb-20 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-12">
-          <Grid title="Latest Episodes" items={data} loading={isLoading} filters />
+          <Grid title="Latest Episodes · 2026 releases" items={latestEpisodes} loading={isLoading} filters />
           {data.length > 0 && <Grid title="Recently Added" items={[...data].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 12)} />}
           <Grid title="Popular Anime" items={popularAnime} loading={isLoading} filters />
         </div>
