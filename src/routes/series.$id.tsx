@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Play, Star, ChevronDown, Layers } from "lucide-react";
@@ -30,6 +31,7 @@ function Row({ k, v }: { k: string; v?: string | null | undefined }) {
 
 function SeriesPage() {
   const { id } = Route.useParams();
+  const [audioFilter, setAudioFilter] = useState<"all" | "sub" | "dub">("all");
   const { data: s, isLoading } = useQuery(seriesQuery(id));
   const { data: catalogue = [] } = useQuery(seriesListQuery());
   const { data: franchiseRelations = [] } = useQuery({
@@ -125,8 +127,15 @@ function SeriesPage() {
       </section>
       <section className="mx-auto max-w-6xl px-6 pb-20">
         <h2 className="mb-4 border-l-4 border-primary pl-3 text-2xl font-extrabold">Episodes</h2>
+        <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter episode audio">
+          {(["all", "sub", "dub"] as const).map((option) => (
+            <button type="button" key={option} aria-pressed={audioFilter === option} onClick={() => setAudioFilter(option)} className={`rounded-full border px-4 py-2 text-xs font-bold uppercase ${audioFilter === option ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-primary"}`}>
+              {option === "all" ? "All episodes" : option === "sub" ? "Subtitled" : "Dubbed"}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {s.episodes.map((e) => (
+          {s.episodes.filter((e) => audioFilter !== "dub" || !!e.dub_video_path).map((e) => (
             <Link key={e.id} to="/watch/$episodeId" params={{ episodeId: e.id }} className="flex items-center gap-3 rounded-md border border-border bg-card p-3 hover:border-primary">
               <span className="rounded bg-primary/15 px-2 py-1 text-xs font-black text-primary">EP {e.number}</span>
               <span className="min-w-0 flex-1 truncate text-sm font-semibold">{e.title || `Episode ${e.number}`}</span><span className="shrink-0 text-[10px] font-bold text-primary">SUB{e.dub_video_path ? " · DUB" : ""}</span>

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ChevronRight, Film, Maximize, Minimize, Search, Subtitles, Mic, Trash2, UserRound, ArrowLeft, ArrowRight, Flag, Keyboard, Play, SkipForward, Scissors } from "lucide-react";
@@ -69,10 +69,26 @@ function Watch() {
   const [videoError, setVideoError] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const resumeTime = useRef(0);
+  const progressKey = `streamly:progress:${episodeId}:${version}`;
+  useEffect(() => {
+    setVideoError(false);
+    try { resumeTime.current = Number(localStorage.getItem(progressKey) || 0); }
+    catch { resumeTime.current = 0; }
+  }, [progressKey]);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const player = videoRef.current;
+      if (!player || !Number.isFinite(player.currentTime) || player.currentTime < 1) return;
+      try { localStorage.setItem(progressKey, String(Math.floor(player.currentTime))); }
+      catch { /* storage unavailable */ }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [progressKey]);
   const episodes = series?.episodes ?? [];
   const index = episodes.findIndex((episode) => episode.id === episodeId);
   const previous = episodes[index - 1];
   const next = episodes[index + 1];
+  const nextPlayable = episodes.slice(index + 1).find((episode) => version === "sub" || !!episode.dub_video_path);
   const shown = episodes.filter((episode) => (filter !== "dub" || !!episode.dub_video_path) && `${episode.number} ${episode.title ?? ""}`.toLowerCase().includes(episodeSearch.toLowerCase()));
   const recommendations = catalog.filter((item) => item.id !== series?.id).sort((a, b) => Number(b.genres.some((genre) => series?.genres.includes(genre))) - Number(a.genres.some((genre) => series?.genres.includes(genre)))).slice(0, 6);
 
@@ -104,7 +120,7 @@ function Watch() {
       <div className="min-w-0">
         <nav aria-label="Breadcrumb" className="mb-2 flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground"><Link to="/">Home</Link><ChevronRight className="h-3 w-3 shrink-0" />{series && <><Link to="/series/$id" params={{ id: series.id }} className="truncate text-foreground">{series.title}</Link><ChevronRight className="h-3 w-3 shrink-0" /></>}<span className="shrink-0 text-primary">Episode {ep.number}</span></nav>
         <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-overlay">
-          {video ? <VideoPlayer ref={videoRef} key={`${episodeId}-${version}-${video}`} src={video} poster={thumb ?? poster ?? undefined} autoPlay={autoplay} autoSkip={autoskip} fileName={`${series?.title ?? "episode"}-EP${ep.number}-${version}`.replace(/[^\w-]+/g, "_")} onLoaded={(el) => { if (resumeTime.current) el.currentTime = resumeTime.current; resumeTime.current = 0; setVideoError(false); }} onError={() => setVideoError(true)} onEnded={() => { if (autonext && next) navigate({ to: "/watch/$episodeId", params: { episodeId: next.id }, search: { lang: version } }); }} /> : <div role="status" className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading video…</div>}
+          {video ? <VideoPlayer ref={videoRef} key={`${episodeId}-${version}-${video}`} src={video} poster={thumb ?? poster ?? undefined} autoPlay={autoplay} autoSkip={autoskip} fileName={`${series?.title ?? "episode"}-EP${ep.number}-${version}`.replace(/[^\w-]+/g, "_")} onLoaded={(el) => { if (resumeTime.current) el.currentTime = resumeTime.current; resumeTime.current = 0; setVideoError(false); }} onError={() => setVideoError(true)} onEnded={() => { try { localStorage.removeItem(progressKey); } catch { /* storage unavailable */ } if (autonext && nextPlayable) navigate({ to: "/watch/$episodeId", params: { episodeId: nextPlayable.id }, search: { lang: version } }); }} /> : <div role="status" className="flex h-full items-center justify-center text-sm text-muted-foreground">Video not available — ask an administrator to connect an authorized video source.</div>}
           {videoError && <div role="alert" className="absolute inset-x-0 top-0 bg-background/90 p-3 text-sm text-destructive">This video could not be played. Try the other version or reload the page.</div>}
         </div>
         <p className="mt-2 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/15 px-3 py-2 text-xs"><Flag className="h-3.5 w-3.5 shrink-0" />If episode is not working, please report it, and we will fix it as soon as possible.</p>
@@ -112,7 +128,7 @@ function Watch() {
           <button type="button" onClick={() => setTheater(!theater)} className="flex items-center gap-1.5 hover:text-primary">{theater ? <Minimize className="h-3.5 w-3.5" /> : <Maximize className="h-3.5 w-3.5" />}Theater</button>
           <span title="Space: play/pause · ←/→: 10s · F: fullscreen · M: mute" className="flex cursor-help items-center gap-1.5"><Keyboard className="h-3.5 w-3.5" />Keys</span>
           {([["Auto play", autoplay, setAutoplay, Play], ["Auto next", autonext, setAutonext, SkipForward], ["Auto skip", autoskip, setAutoskip, Scissors]] as const).map(([label, on, set, Icon]) => <button key={label} type="button" aria-pressed={on} onClick={() => set(!on)} className={`flex items-center gap-1.5 ${on ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}><Icon className="h-3.5 w-3.5" />{label}</button>)}
-          <div className="flex gap-1">{previous && <Button asChild variant="ghost" size="icon" aria-label="Previous episode"><Link to="/watch/$episodeId" params={{ episodeId: previous.id }} search={{ lang: version }}><ArrowLeft /></Link></Button>}{next && <Button asChild variant="ghost" size="icon" aria-label="Next episode"><Link to="/watch/$episodeId" params={{ episodeId: next.id }} search={{ lang: version }}><ArrowRight /></Link></Button>}</div>
+          <div className="flex gap-1">{previous && <Button asChild variant="ghost" size="icon" aria-label="Previous episode"><Link to="/watch/$episodeId" params={{ episodeId: previous.id }} search={{ lang: version }}><ArrowLeft /></Link></Button>}{nextPlayable && <Button asChild variant="ghost" size="icon" aria-label="Next episode"><Link to="/watch/$episodeId" params={{ episodeId: nextPlayable.id }} search={{ lang: version }}><ArrowRight /></Link></Button>}</div>
         </div>
         <div className="grid gap-4 border-b border-border py-5 sm:grid-cols-2">
           <div className="text-center"><p className="text-sm text-muted-foreground">You are Watching</p><h1 className="mt-1 text-sm font-extrabold">Episode {ep.number}{ep.title ? ` — ${ep.title}` : ""}</h1><p className="mt-1 text-xs text-muted-foreground">If the current version doesn't work, please try the other one beside.</p></div>
