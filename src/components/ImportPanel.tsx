@@ -16,38 +16,8 @@ export function ImportPanel() {
   const [animeSearch, setAnimeSearch] = useState("");
   const [animeResults, setAnimeResults] = useState<{ id: number; title: string; year: number | null; cover: string | null }[]>([]);
   const [searchingAnime, setSearchingAnime] = useState(false);
-  const [selectedAnime, setSelectedAnime] = useState<{ id: number; title: string; year: number | null } | null>(null);
   const [sourceResults, setSourceResults] = useState<{ subjectId: number; detailPath: string; title: string; year: number | null; cover: string | null; episodeCount: number }[]>([]);
   const [selectedSource, setSelectedSource] = useState<{ subjectId: number; detailPath: string; title: string; cover: string | null; episodeCount: number } | null>(null);
-
-  const searchAnime = async () => {
-    const term = animeSearch.trim();
-    if (!term) return;
-    setSearchingAnime(true);
-    setSelectedAnime(null);
-    try {
-      const response = await fetch("https://graphql.anilist.co", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          query: `query ($search: String) { Page(perPage: 8) { media(search: $search, type: ANIME, isAdult: false, sort: SEARCH_MATCH) { id title { english romaji } startDate { year } coverImage { medium } } } }`,
-          variables: { search: term },
-        }),
-      });
-      if (!response.ok) throw new Error("AniList search failed. Try again shortly.");
-      const json = await response.json();
-      if (json.errors?.length) throw new Error(json.errors[0].message);
-      const results = json.data?.Page?.media ?? [];
-      setAnimeResults(results.map((item: { id: number; title: { english: string | null; romaji: string }; startDate: { year: number | null }; coverImage: { medium: string | null } }) => ({
-        id: item.id, title: item.title.english || item.title.romaji, year: item.startDate.year, cover: item.coverImage.medium,
-      })));
-      if (!results.length) toast.info("No anime found for that search.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Anime search failed");
-    } finally {
-      setSearchingAnime(false);
-    }
-  };
 
   const importSpecific = async () => {
     if (!selectedSource) return;
