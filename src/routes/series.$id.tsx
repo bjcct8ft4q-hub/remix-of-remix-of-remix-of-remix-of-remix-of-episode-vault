@@ -42,9 +42,9 @@ function SeriesPage() {
       <section className="relative overflow-hidden pt-40 md:pt-28">
         {banner && <img src={banner} alt="" className="absolute inset-0 h-full w-full object-cover opacity-25 blur-sm" />}
         <div className="absolute inset-0 bg-gradient-to-t from-background to-background/30" />
-        <div className="relative mx-auto flex max-w-6xl flex-col gap-8 px-6 pb-12 md:flex-row">
-          <div className="w-48 shrink-0 overflow-hidden rounded-md bg-muted md:w-60">
-            {cover && <img src={cover} alt={s.title} className="aspect-[3/4] w-full object-cover" />}
+        <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-8 px-6 pb-12 md:flex-row">
+          <div className="relative aspect-[3/4] w-48 shrink-0 overflow-hidden rounded-md bg-muted md:w-60">
+            {cover && <img src={cover} alt={s.title} className="absolute inset-0 h-full w-full object-cover" />}
           </div>
           <div className="flex-1">
             <h1 className="text-4xl font-black md:text-5xl">{s.title}</h1>
