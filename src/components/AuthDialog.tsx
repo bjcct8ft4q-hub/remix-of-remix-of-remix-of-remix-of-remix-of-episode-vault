@@ -29,7 +29,7 @@ function PasswordInput({ value, onChange }: { value: string; onChange: (v: strin
 }
 
 export function AuthDialog() {
-  const { authTab, closeAuth } = useAuth();
+  const { authTab, closeAuth, openAuth } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -61,24 +61,43 @@ export function AuthDialog() {
         <button onClick={closeAuth} aria-label="Close" className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
-        <h2 className="text-2xl font-extrabold">Welcome back</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Sign in to your existing Streamly account.</p>
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          <Field label="Email">
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputCls} autoComplete="username" required />
-          </Field>
-          <Field label="Password">
-            <PasswordInput value={password} onChange={setPassword} />
-          </Field>
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-sm bg-primary py-3.5 text-sm font-extrabold uppercase tracking-[0.2em] text-primary-foreground disabled:opacity-60"
-          >
-            {busy ? "Please wait..." : "Sign in"}
-          </button>
-        </form>
-        <p className="mt-4 text-center text-xs text-muted-foreground">New account registration is temporarily unavailable.</p>
+        {authTab === "signup" ? (
+          <>
+            <h2 className="text-2xl font-extrabold">Account creation is temporarily unavailable</h2>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              We’re carrying out maintenance on Streamly account registration. You can still sign in if you already have an account.
+              Please check back for updates on when new registrations will reopen.
+            </p>
+            <button
+              type="button"
+              onClick={() => openAuth("signin")}
+              className="mt-6 w-full rounded-sm bg-primary py-3.5 text-sm font-extrabold uppercase tracking-[0.2em] text-primary-foreground"
+            >
+              Back to sign in
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-extrabold">Welcome back</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Sign in to your existing Streamly account.</p>
+            <form onSubmit={submit} className="mt-6 space-y-4">
+              <Field label="Email">
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className={inputCls} autoComplete="username" required />
+              </Field>
+              <Field label="Password">
+                <PasswordInput value={password} onChange={setPassword} />
+              </Field>
+              <button
+                type="submit"
+                disabled={busy}
+                className="w-full rounded-sm bg-primary py-3.5 text-sm font-extrabold uppercase tracking-[0.2em] text-primary-foreground disabled:opacity-60"
+              >
+                {busy ? "Please wait..." : "Sign in"}
+              </button>
+            </form>
+            <p className="mt-4 text-center text-xs text-muted-foreground">New account registration is temporarily unavailable.</p>
+          </>
+        )}
       </div>
     </div>
   );
