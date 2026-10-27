@@ -33,7 +33,7 @@ export function ImportPanel() {
         subjectId: selectedSource.subjectId, detailPath: selectedSource.detailPath,
         title: selectedSource.title, cover: selectedSource.cover,
       } });
-      toast.success(`${result.title}: ${result.seriesAdded ? "added to Streamly" : "updated"}; ${result.episodesAdded} episode entries added`);
+      toast.success(`${result.title}: ${result.seriesAdded ? "added to Streamly" : "updated"}; ${result.episodesAdded} episode entries added${result.playableEpisodesAdded ? `; ${result.playableEpisodesAdded} playable entries configured` : ""}`);
       if (result.note) toast.info(result.note);
       setSourceResults([]);
       setSelectedSource(null);
