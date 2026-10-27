@@ -12,7 +12,7 @@ export function ImportPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [history, setHistory] = useState(false);
 
-  const run = async (selection: "trending" | "popular") => {
+  const run = async (selection: "trending" | "popular" | "upcoming" | "airing") => {
     setBusy(selection);
     try {
       const r = await runAniListImport({ data: { selection } });
@@ -36,8 +36,10 @@ export function ImportPanel() {
       </div>
       <p className="text-sm text-muted-foreground">Last successful sync: {s?.settings?.last_success_at ? new Date(s.settings.last_success_at).toLocaleString() : "never"}</p>
       <div className="flex flex-wrap gap-2">
-        <Button disabled={!!busy} onClick={() => run("trending")}>{busy === "trending" && <LoaderCircle className="animate-spin" />}Import trending now</Button>
+        <Button disabled={!!busy} onClick={() => run("trending")}>{busy === "trending" && <LoaderCircle className="animate-spin" />}Import trending</Button>
         <Button disabled={!!busy} variant="outline" onClick={() => run("popular")}>{busy === "popular" && <LoaderCircle className="animate-spin" />}Import popular</Button>
+        <Button disabled={!!busy} variant="outline" onClick={() => run("upcoming")}>{busy === "upcoming" && <LoaderCircle className="animate-spin" />}Import upcoming</Button>
+        <Button disabled={!!busy} variant="outline" onClick={() => run("airing")}>{busy === "airing" && <LoaderCircle className="animate-spin" />}Import currently airing</Button>
         <Button variant="outline" onClick={toggle}>Automatic updates: {s?.settings?.enabled ? "On" : "Off"}</Button>
         <Button variant="ghost" onClick={() => setHistory(!history)}>{history ? "Hide" : "View"} import history</Button>
       </div>
