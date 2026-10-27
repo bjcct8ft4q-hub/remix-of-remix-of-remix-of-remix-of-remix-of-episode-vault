@@ -51,19 +51,19 @@ export const searchAnimeDoc = createServerFn({ method: "POST" })
     if (!isAdmin) throw new Error("Admins only");
     const json = await animeDoc<unknown>("/api/v2/anime/search/", "POST", { keyword: data.query, page: 1, perPage: 10, subjectType: 0 });
     return records(json).map((item) => ({
-      subjectId: num(item.subjectId, item.subject_id, item.id),
+      subjectId: str(item.subjectId, item.subject_id, item.id, item.subjectID),
       detailPath: str(item.detailPath, item.detail_path, item.path),
       title: str(item.title, item.name, item.nameEn, item.titleEnglish, item.title_english) || "Untitled anime",
       year: num(item.year, item.releaseYear, item.release_year),
       cover: imageUrl(item.cover || item.coverUrl || item.cover_url || item.image || item.poster),
       episodeCount: num(item.episodeCount, item.episode_count, item.episodes) ?? 0,
-    })).filter((item) => item.detailPath && item.subjectId !== null);
+    })).filter((item) => item.detailPath && item.subjectId);
   });
 
 export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({
-    subjectId: z.number().int().positive(),
+    subjectId: z.string().trim().min(1).max(100),
     detailPath: z.string().min(1).max(1000),
     title: z.string().min(1).max(250),
     cover: z.string().url().nullable().optional(),
