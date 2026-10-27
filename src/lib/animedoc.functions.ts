@@ -201,7 +201,7 @@ export const discoverAuthorizedYouTubeEpisodes = createServerFn({ method: "POST"
         match = results.find((item) => {
           const title = (item.snippet?.title || "").toLowerCase();
           const hasTitle = titleTokens.some((token: string) => title.includes(token));
-          const escaped = String(ep.number).replace(/[.*+?^${}()|[\]\\]/g, "\\// Attach a stream URL that the site owner is authorised to use to an imported catalogue episode.");
+          const escaped = String(ep.number);
           const hasEpisode = new RegExp(`(?:episode|ep\\.?|#|part)\\s*0*${escaped}(?:\\D|$)|^0*${escaped}\\s*[-:.]`, "i").test(title);
           return !!item.id.videoId && item.snippet.channelId === channelId && hasTitle && hasEpisode;
         });
