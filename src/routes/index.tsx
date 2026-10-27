@@ -51,26 +51,32 @@ function isCurrentPopularAnime(series: S) {
 function Hero({ s }: { s: S }) {
   const img = useSignedUrl(s.banner_url || s.cover_url);
   return (
-    <div className="absolute inset-0">
-      {img && <img src={img} alt="" className="h-full w-full object-cover" />}
-      <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-background/25 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/40" />
-      <div className="pointer-events-none absolute inset-0 bg-[repeating-linear-gradient(0deg,var(--background)_0_1px,transparent_1px_4px)] opacity-30" />
-      <div className="absolute bottom-16 left-5 right-5 max-w-[460px] sm:left-8 md:left-12 md:right-auto">
-        <div className="flex gap-2 text-xs font-bold text-primary">
-          <span className="flex items-center gap-1 rounded-sm bg-overlay/80 px-2 py-1"><Star className="h-3 w-3 fill-primary" />{s.score ?? "N/A"}</span>
-          <span className="rounded-sm bg-overlay/80 px-2 py-1">{s.type}</span>
-          {s.start_date && <span className="rounded-sm bg-overlay/80 px-2 py-1">{new Date(s.start_date).getFullYear()}</span>}
+    <div className="grid h-full min-h-[390px] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[0.9fr_1.1fr]">
+      <div className="relative z-10 flex flex-col justify-center px-6 py-10 sm:px-9 md:px-12">
+        <div className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-primary">
+          <span className="h-px w-8 bg-primary" /> Featured pick
         </div>
-        <h1 className="mt-4 break-words text-3xl font-black leading-tight md:text-4xl">{s.title}</h1>
-        <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-foreground/85">{s.description}</p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button asChild className="clip-slant h-11 rounded-none px-7 text-xs font-extrabold uppercase"><Link to="/series/$id" params={{ id: s.id }}>
+        <div className="flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
+          <span className="rounded-full border border-border px-3 py-1">{s.type ?? "Anime"}</span>
+          {s.start_date && <span className="rounded-full border border-border px-3 py-1">{new Date(s.start_date).getFullYear()}</span>}
+          <span className="flex items-center gap-1 rounded-full border border-border px-3 py-1"><Star className="h-3 w-3 fill-primary text-primary" />{s.score ?? "N/A"}</span>
+        </div>
+        <h1 className="mt-5 max-w-xl break-words text-3xl font-black leading-tight tracking-tight sm:text-4xl lg:text-5xl">{s.title}</h1>
+        <p className="mt-4 line-clamp-3 max-w-lg text-sm leading-7 text-muted-foreground">{s.description}</p>
+        <div className="mt-7 flex flex-wrap gap-3">
+          <Button asChild className="h-11 rounded-full px-6 text-sm font-bold"><Link to="/series/$id" params={{ id: s.id }}>
             <Play className="h-4 w-4 fill-current" /> Watch now
           </Link></Button>
-          <Button asChild variant="outline" className="clip-slant h-11 rounded-none bg-overlay/50 px-7 text-xs font-extrabold uppercase"><Link to="/series/$id" params={{ id: s.id }}>
-            <Info className="h-4 w-4" /> Details
+          <Button asChild variant="outline" className="h-11 rounded-full px-6 text-sm font-bold"><Link to="/series/$id" params={{ id: s.id }}>
+            <Info className="h-4 w-4" /> View details
           </Link></Button>
+        </div>
+      </div>
+      <div className="relative min-h-[250px] overflow-hidden bg-muted md:min-h-[440px]">
+        {img && <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/20 to-transparent md:from-card/80 md:via-transparent" />
+        <div className="absolute bottom-5 right-5 rounded-full border border-white/20 bg-black/50 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
+          Discover on Streamly
         </div>
       </div>
     </div>
@@ -169,25 +175,25 @@ function Index() {
 
   return (
     <main>
-      <section className="relative h-[64svh] min-h-[480px] max-h-[680px] overflow-hidden max-sm:min-h-[550px]">
+      <section className="mx-auto max-w-[1900px] px-4 pb-8 pt-6 sm:px-6 md:pt-8">
         {current ? (
           <>
             <Hero key={current.id} s={current} />
-            <div className="absolute right-5 top-36 flex gap-2 md:top-20">
+            <div className="absolute right-8 top-10 z-20 flex gap-2 md:right-10 md:top-12">
               {[ChevronLeft, ChevronRight].map((Ic, k) => (
                 <Button variant="outline" size="icon" key={k} aria-label={k ? "Next" : "Previous"} onClick={() => setI((x) => (x + (k ? 1 : -1) + featured.length) % featured.length)} className="bg-overlay/60">
                   <Ic className="h-4 w-4" />
                 </Button>
               ))}
             </div>
-            <div className="absolute bottom-8 right-6 flex items-center gap-1">
+            <div className="mt-4 flex items-center justify-end gap-1">
               {featured.map((f, k) => (
                 <Button variant="ghost" key={f.id} aria-label={`Slide ${k + 1}`} aria-pressed={k === activeIndex} onClick={() => setI(k)} className="h-6 w-7 rounded-none p-0"><span className={`h-1 rounded-full ${k === activeIndex ? "w-6 bg-primary" : "w-1.5 bg-muted-foreground/50"}`} /></Button>
               ))}
             </div>
           </>
         ) : (
-          <div className="flex h-full flex-col justify-end gap-4 px-5 pb-20 sm:px-8 md:px-12">
+          <div className="flex min-h-[390px] flex-col justify-center gap-4 rounded-2xl border border-border bg-card px-6 py-12 sm:px-8 md:px-12">
             <p className="text-sm font-bold uppercase text-primary">Streamly</p>
             <h1 className="max-w-lg text-4xl font-black">{isLoading ? "Loading..." : "Nothing streaming yet"}</h1>
             {!isLoading && (
