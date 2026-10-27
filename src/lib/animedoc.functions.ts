@@ -45,7 +45,6 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
     const title = anime.title_english || anime.title || data.title;
     const cover = anime.images?.webp?.image_url || anime.images?.jpg?.image_url || data.cover || null;
     const episodeCount = anime.episodes ?? 0;
-    if (episodeCount < 1) throw new Error("Tenrai does not list an episode count for this anime, so no episode entries were created.");
     if (episodeCount > 2000) throw new Error("The reported episode count is unexpectedly high; import was stopped for safety.");
     const { data: existing, error: findError } = await db.from("series").select("id,import_locked").eq("title", title).maybeSingle();
     if (findError) throw new Error("Could not check the existing series: " + findError.message);
@@ -69,9 +68,11 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
     const rows: { series_id: string; number: number; season_number: number; season_episode_number: number; title: string; released: boolean }[] = [];
     let page = 1;
     let lastPage = 1;
+    let discoveredEpisodeCount = episodeCount;
     do {
-      const response = await jikan<{ data: JikanEpisode[]; pagination?: { last_visible_page?: number } }>("/anime/" + animeId + "/episodes?page=" + page);
-      lastPage = Math.min(response.pagination?.last_visible_page || 1, 80);
+      const response = await jikan<{ data: JikanEpisode[]; pagination?: { last_visible_page?: number; items?: { total?: number } } }>("/anime/" + animeId + "/episodes?page=" + page);
+      discoveredEpisodeCount = Math.max(discoveredEpisodeCount, response.pagination?.items?.total || 0);
+      lastPage = Math.min(response.pagination?.last_visible_page || 1, 500);
       for (const ep of response.data || []) {
         const number = Number(ep.episode);
         if (!Number.isInteger(number) || number < 1 || number > 2000 || known.has(number)) continue;
@@ -85,7 +86,13 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
       const { error } = await db.from("episode_catalog").insert(rows);
       if (error) throw new Error("Series was saved, but episode import failed: " + error.message);
     }
-    return { title, seriesAdded, episodesAdded: rows.length, episodeCount, seriesId, note: "Jikan provides anime and episode information, not video streams. Add an authorised video URL or upload a video separately for each playable episode." };
+    const finalEpisodeCount = Math.max(discoveredEpisodeCount, ...Array.from(known));
+    if (finalEpisodeCount > 0) {
+      const { error } = await db.from("series").update({ total_episodes: finalEpisodeCount }).eq("id", seriesId);
+      if (error) throw new Error("Episodes were imported, but the total episode count could not be updated: " + error.message);
+    }
+    if (rows.length === 0 && known.size === 0) throw new Error("Tenrai returned no episode records for this anime. Its metadata was saved, but no episode entries were available to import.");
+    return { title, seriesAdded, episodesAdded: rows.length, episodeCount: finalEpisodeCount, seriesId, note: "Tenrai provides anime and episode information, not video streams. Add an authorised video URL or upload a video separately for each playable episode." };
   });
 
 // Attach a stream URL that the site owner is authorised to use to an imported catalogue episode.
