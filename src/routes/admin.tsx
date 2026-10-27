@@ -295,6 +295,21 @@ function EpisodeManager({ seriesId }: { seriesId: string }) {
       </div>
       {status && <p role={status.kind === "error" ? "alert" : "status"} className={`break-words text-sm ${status.kind === "error" ? "text-destructive" : "text-primary"}`}>{status.message}</p>}
       </form>
+      <form className="flex flex-wrap items-end gap-2 rounded-md border border-border p-3" onSubmit={async (ev) => {
+        ev.preventDefault();
+        const fd = new FormData(ev.currentTarget); const f = ev.currentTarget;
+        const n = Number(fd.get("n")); const url = String(fd.get("url") ?? "").trim();
+        if (!Number.isInteger(n) || n < 1) return void toast.error("Enter an episode number");
+        if (!/^https:\/\/.+/i.test(url)) return void toast.error("Enter a full https:// streaming link");
+        if (s?.episodes.some((x) => x.number === n)) return void toast.error(`Episode ${n} already has a video`);
+        const { error } = await supabase.from("episodes").insert({ series_id: seriesId, number: n, video_path: url });
+        if (error) return void toast.error(error.message);
+        toast.success(`Streaming link added to episode ${n}`); f.reset(); qc.invalidateQueries({ queryKey: ["series"] });
+      }}>
+        <L t="Episode #"><input name="n" type="number" min="1" className={`${inputCls} w-24`} placeholder={String(next)} /></L>
+        <div className="min-w-0 flex-1"><L t="Authorised streaming link (.m3u8 or .mp4)"><input name="url" type="url" className={inputCls} placeholder="https://…/index.m3u8" /></L></div>
+        <Button type="submit" variant="outline" className="h-11">Add link</Button>
+      </form>
       <ul className="divide-y divide-border">
         {s?.episodes.map((e) => (
           <li key={e.id} className="py-2 text-sm">
