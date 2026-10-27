@@ -48,7 +48,7 @@ function SeriesPage() {
       if (!response.ok) throw new Error("Could not load related seasons");
       const json = await response.json();
       return (json.data?.Media?.relations?.edges ?? [])
-        .filter((edge: { node: { type: string; id: number } }) => edge.node.type === "ANIME")
+        .filter((edge: { relationType: string; node: { type: string; id: number } }) => edge.node.type === "ANIME" && ["SEQUEL", "PREQUEL"].includes(edge.relationType))
         .map((edge: { relationType: string; node: { id: number; title: { english: string | null; romaji: string | null }; startDate: { year: number | null }; format: string | null } }) => ({
           relationType: edge.relationType,
           anilistId: edge.node.id,
@@ -83,7 +83,7 @@ function SeriesPage() {
           </div>
           <div className="flex-1">
             <h1 className="text-4xl font-black md:text-5xl">{s.title}</h1>
-            {!!s.anilist_id && (
+            {!!s.anilist_id && relatedSeasons.length > 1 && (
               <div className="mt-4 max-w-md">
                 <label htmlFor="anime-season" className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground"><Layers className="h-4 w-4 text-primary" />Choose season or related series</label>
                 <div className="relative">
@@ -92,7 +92,7 @@ function SeriesPage() {
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{relatedSeasons.length > 1 ? "Choose an imported season or related series." : "Related seasons are being checked. Import the other seasons to make them available here."}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Choose an imported sequel or prequel.</p>
               </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
