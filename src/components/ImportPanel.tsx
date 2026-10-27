@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { LoaderCircle, RefreshCw, Flame, TrendingUp, CalendarClock, Radio, Layers3, History, ChevronDown, Database, Film, CircleHelp, Search, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { importStats, runAniListImport } from "@/lib/anilist.functions";
+import { importTmdbSeasons, searchTmdbSeries } from "@/lib/tmdb.functions";
 import { Button } from "@/components/ui/button";
 
 export function ImportPanel() {
@@ -15,7 +16,11 @@ export function ImportPanel() {
   const [animeSearch, setAnimeSearch] = useState("");
   const [animeResults, setAnimeResults] = useState<{ id: number; title: string; year: number | null; cover: string | null }[]>([]);
   const [searchingAnime, setSearchingAnime] = useState(false);
-  const [selectedAnime, setSelectedAnime] = useState<{ id: number; title: string } | null>(null);
+  const [selectedAnime, setSelectedAnime] = useState<{ id: number; title: string; year: number | null } | null>(null);
+  const [tmdbSeriesId, setTmdbSeriesId] = useState<string | null>(null);
+  const [tmdbResults, setTmdbResults] = useState<{ id: number; title: string; year: string | null; overview: string; poster: string | null; seasons: number }[]>([]);
+  const [selectedTmdb, setSelectedTmdb] = useState<{ id: number; title: string; seasons: number } | null>(null);
+  const [tmdbBusy, setTmdbBusy] = useState(false);
 
   const searchAnime = async () => {
     const term = animeSearch.trim();
@@ -52,10 +57,20 @@ export function ImportPanel() {
     try {
       const result = await runAniListImport({ data: { selection: "specific", anilistId: selectedAnime.id } });
       toast.success(`${selectedAnime.title}: ${result.seriesAdded ? "added to Streamly" : "updated"}; ${result.episodesAdded} episode entries added`);
+      const { data: localSeries, error: lookupError } = await supabase.from("series").select("id").eq("anilist_id", selectedAnime.id).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!localSeries) throw new Error("Anime imported, but its Streamly series record could not be found. Refresh and try TMDB search again.");
+      setTmdbSeriesId(localSeries.id);
+      setTmdbBusy(true);
+      try {
+        const candidates = await searchTmdbSeries({ data: { query: selectedAnime.title, ...(selectedAnime.year ? { year: selectedAnime.year } : {}) } });
+        setTmdbResults(candidates);
+        setSelectedTmdb(null);
+        if (!candidates.length) toast.info("No TMDB matches found. Try a different title in TMDB or continue without TMDB.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "TMDB search failed");
+      } finally { setTmdbBusy(false); }
       qc.invalidateQueries({ queryKey: ["series"] });
-      setSelectedAnime(null);
-      setAnimeResults([]);
-      setAnimeSearch("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Import failed");
     } finally {
@@ -161,8 +176,14 @@ export function ImportPanel() {
           </div>
           <Button type="submit" variant="outline" disabled={searchingAnime || !animeSearch.trim()}>{searchingAnime ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Search AniList</Button>
         </form>
-        {animeResults.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{animeResults.map((anime) => <button type="button" key={anime.id} onClick={() => setSelectedAnime({ id: anime.id, title: anime.title })} className={`flex items-center gap-3 rounded-lg border p-2 text-left transition ${selectedAnime?.id === anime.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>{anime.cover ? <img src={anime.cover} alt="" className="h-14 w-10 rounded object-cover" /> : <span className="h-14 w-10 rounded bg-muted" />}<span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{anime.title}</span><span className="text-xs text-muted-foreground">{anime.year ?? "Year unknown"} · AniList ID {anime.id}</span></span><span className="text-xs font-semibold text-primary">{selectedAnime?.id === anime.id ? "Selected" : "Select"}</span></button>)}</div>}
+        {animeResults.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{animeResults.map((anime) => <button type="button" key={anime.id} onClick={() => setSelectedAnime({ id: anime.id, title: anime.title, year: anime.year })} className={`flex items-center gap-3 rounded-lg border p-2 text-left transition ${selectedAnime?.id === anime.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>{anime.cover ? <img src={anime.cover} alt="" className="h-14 w-10 rounded object-cover" /> : <span className="h-14 w-10 rounded bg-muted" />}<span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{anime.title}</span><span className="text-xs text-muted-foreground">{anime.year ?? "Year unknown"} · AniList ID {anime.id}</span></span><span className="text-xs font-semibold text-primary">{selectedAnime?.id === anime.id ? "Selected" : "Select"}</span></button>)}</div>}
         {selectedAnime && <div className="mt-3 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">Ready to import <strong>{selectedAnime.title}</strong> and its episode list.</p><Button disabled={!!busy} onClick={() => void importSpecific()}>{busy === "specific" ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Import selected anime</Button></div>}
+        {tmdbBusy && <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><LoaderCircle className="h-4 w-4 animate-spin" />Searching TMDB for matching seasons…</p>}
+        {tmdbResults.length > 0 && <div className="mt-4 space-y-3 rounded-xl border border-border p-3">
+          <div><h4 className="font-semibold">Match this series to TMDB</h4><p className="text-xs text-muted-foreground">Check the title and year carefully. Selecting a match imports metadata only, not videos.</p></div>
+          <div className="grid gap-2 sm:grid-cols-2">{tmdbResults.map((item) => <button key={item.id} type="button" onClick={() => setSelectedTmdb({ id: item.id, title: item.title, seasons: item.seasons })} className={`flex items-center gap-3 rounded-lg border p-2 text-left ${selectedTmdb?.id === item.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>{item.poster ? <img src={item.poster} alt="" className="h-16 w-11 rounded object-cover" /> : <span className="h-16 w-11 rounded bg-muted" />}<span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{item.title}</span><span className="block text-xs text-muted-foreground">{item.year || "Year unknown"} · {item.seasons} seasons · TMDB {item.id}</span><span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">{item.overview}</span></span><span className="text-xs text-primary">{selectedTmdb?.id === item.id ? "Selected" : "Select"}</span></button>)}</div>
+          {selectedTmdb && <Button disabled={!!busy || !tmdbSeriesId} onClick={async () => { setBusy("tmdb"); try { const result = await importTmdbSeasons({ data: { seriesId: tmdbSeriesId!, tmdbId: selectedTmdb.id } }); toast.success(`TMDB synced: ${result.seasons} seasons checked, ${result.added} new episodes, ${result.updated} metadata entries updated.`); setTmdbResults([]); setSelectedTmdb(null); setTmdbSeriesId(null); qc.invalidateQueries({ queryKey: ["series"] }); void refetch(); } catch (e) { toast.error(e instanceof Error ? e.message : "TMDB import failed"); } finally { setBusy(null); }} className="w-full sm:w-auto">{busy === "tmdb" ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Import {selectedTmdb.seasons} TMDB seasons and episode details</Button>}
+        </div>}
       </div>
 
       <div className="rounded-2xl border border-border p-4 sm:p-5">
