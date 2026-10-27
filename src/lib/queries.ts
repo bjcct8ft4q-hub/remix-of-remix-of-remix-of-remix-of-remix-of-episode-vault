@@ -15,9 +15,12 @@ export const seriesQuery = (id: string) =>
   queryOptions({
     queryKey: ["series", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("series").select("*, episodes(*)").eq("id", id).maybeSingle();
+      const { data, error } = await supabase.from("series").select("*, episodes(*), episode_catalog(*)").eq("id", id).maybeSingle();
       if (error) throw error;
-      if (data) data.episodes.sort((a, b) => a.number - b.number);
+      if (data) {
+        data.episodes.sort((a, b) => a.number - b.number);
+        data.episode_catalog.sort((a, b) => a.number - b.number);
+      }
       return data;
     },
   });
