@@ -1,0 +1,23 @@
+# Streamly roadmap
+- [ ] Plan staged AniList metadata and episode importing, preserving manual content
+- [ ] Add automatic import controls, statistics and visible errors
+- [ ] Integrate authorised playback — waiting on provider access and content rights
+- [ ] Add bounded automatic synchronisation with caching and rate-limit handling
+- [x] Match the screenshot's patterned navigation and three-column watch page
+- [x] Support required sub video and optional dub video per episode
+- [x] Test version selection, optional dub behavior and upload failures; inspect watch layout with browser-only examples
+- [ ] Verify real sub/dub uploads and playback — blocked: no signed-up account or uploaded videos exist
+- [x] Repair the navigation dropdown and verify the preview
+- [x] Add screenshot-style quick search when the search bar is clicked
+- [x] Match the uploaded homepage layout with compact navigation, featured artwork, and a right-hand Top Rated column
+- [x] Implement resumable episode uploads with progress, cancellation, success, and actionable errors
+- [ ] Verify a real episode upload — blocked: no account exists yet; the first sign-up becomes admin
+- [x] Refine admin layout, navigation, and series cards without changing the existing design
+- [x] Keep Top Rated empty and activate Halloween automatically from 5 October through 1 November
+- [x] Database: series, episodes, comments, profiles, roles; video + cover storage
+- [x] Home page (hero slider, top rated, latest grid)
+- [x] Sign in / Create account modal (email + Google)
+- [x] Admin: add series with all details, upload episode videos
+- [x] Series page + episode player with comments
+- [x] Branding: Streamly, blue; Halloween mode orange; placeholder infinity logo
+- [ ] Real logo — waiting on user's file
