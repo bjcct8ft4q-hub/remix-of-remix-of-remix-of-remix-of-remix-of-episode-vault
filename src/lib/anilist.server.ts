@@ -1,7 +1,12 @@
 import { supabaseAdmin as db } from "@/integrations/supabase/client.server";
 
-const QUERY = `query($sort:[MediaSort]){Page(perPage:20){media(type:ANIME,sort:$sort,isAdult:false){id title{english romaji native} description(asHtml:false) coverImage{extraLarge} bannerImage genres averageScore status episodes format season seasonYear startDate{year month day} countryOfOrigin studios(isMain:true){nodes{name}} nextAiringEpisode{episode}}}}`;
-const SORTS = { trending: ["TRENDING_DESC"], popular: ["POPULARITY_DESC"] } as const;
+const QUERY = `query($sort:[MediaSort],$status:MediaStatus){Page(perPage:50){media(type:ANIME,sort:$sort,status:$status,isAdult:false){id title{english romaji native} description(asHtml:false) coverImage{extraLarge} bannerImage genres averageScore status episodes format season seasonYear startDate{year month day} countryOfOrigin studios(isMain:true){nodes{name}} nextAiringEpisode{episode}}}}`;
+const SELECTIONS = {
+  trending: { sort: ["TRENDING_DESC"], status: null },
+  popular: { sort: ["POPULARITY_DESC"], status: null },
+  upcoming: { sort: ["POPULARITY_DESC"], status: "NOT_YET_RELEASED" },
+  airing: { sort: ["POPULARITY_DESC"], status: "RELEASING" },
+} as const;
 const STATUS: Record<string, string> = { RELEASING: "Airing", FINISHED: "Finished", NOT_YET_RELEASED: "Upcoming" };
 
 type Media = {
@@ -13,7 +18,7 @@ type Media = {
 };
 
 
-export async function importCore(data: { selection: "trending" | "popular" }) {
+export async function importCore(data: { selection: keyof typeof SELECTIONS }) {
   const { data: claimed } = await db.rpc("claim_import_run");
   if (!claimed) throw new Error("An import is already running or AniList asked us to wait. Try again shortly.");
   const { data: run } = await db.from("import_runs").insert({ selection: data.selection }).select("id").single();
@@ -24,7 +29,7 @@ export async function importCore(data: { selection: "trending" | "popular" }) {
     let media: Media[];
     if (cached) media = cached.response as unknown as Media[];
     else {
-      const res = await fetch("https://graphql.anilist.co", { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ query: QUERY, variables: { sort: SORTS[data.selection] } }), signal: AbortSignal.timeout(20_000) });
+      const res = await fetch("https://graphql.anilist.co", { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ query: QUERY, variables: { sort: SELECTIONS[data.selection].sort, status: SELECTIONS[data.selection].status } }), signal: AbortSignal.timeout(20_000) });
       if (res.status === 429) {
         const wait = Number(res.headers.get("retry-after") ?? 60);
         await db.from("import_settings").update({ retry_after: new Date(Date.now() + wait * 1000).toISOString() }).eq("id", true);
