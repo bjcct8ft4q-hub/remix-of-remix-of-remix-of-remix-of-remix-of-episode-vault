@@ -12,7 +12,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth";
-import { ThemeProvider } from "@/lib/theme";
+import { ThemeProvider, useTheme } from "@/lib/theme";
 import { Header } from "@/components/Header";
 import { AuthDialog } from "@/components/AuthDialog";
 
@@ -105,6 +105,21 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function HalloweenEffects() {
+  const { halloween } = useTheme();
+  if (!halloween) return null;
+  return (
+    <div className="halloween-effects" aria-hidden="true">
+      <span className="halloween-bat halloween-bat-one">🦇</span>
+      <span className="halloween-bat halloween-bat-two">🦇</span>
+      <span className="halloween-bat halloween-bat-three">🦇</span>
+      <span className="halloween-pumpkin">🎃</span>
+      <span className="halloween-spark halloween-spark-one">✦</span>
+      <span className="halloween-spark halloween-spark-two">✧</span>
+    </div>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
@@ -112,6 +127,7 @@ function RootComponent() {
       <ThemeProvider>
         <AuthProvider>
           <div className="relative min-h-screen">
+            <HalloweenEffects />
             <Header />
             <Outlet />
             <Footer />
