@@ -8,6 +8,7 @@ const SELECTIONS = {
   upcoming: { sort: ["POPULARITY_DESC"], status: "NOT_YET_RELEASED" },
   airing: { sort: ["POPULARITY_DESC"], status: "RELEASING" },
   specific: { sort: ["POPULARITY_DESC"], status: null },
+  specific: { sort: ["POPULARITY_DESC"], status: null },
 } as const;
 const STATUS: Record<string, string> = { RELEASING: "Airing", FINISHED: "Finished", NOT_YET_RELEASED: "Upcoming" };
 
