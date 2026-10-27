@@ -53,9 +53,7 @@ function Hero({ s }: { s: S }) {
   return (
     <div className="grid h-full min-h-[390px] grid-cols-1 overflow-hidden rounded-2xl border border-border bg-card md:grid-cols-[0.9fr_1.1fr]">
       <div className="relative z-10 flex flex-col justify-center px-6 py-10 sm:px-9 md:px-12">
-        <div className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-primary">
-          <span className="h-px w-8 bg-primary" /> Featured pick
-        </div>
+
         <div className="flex flex-wrap gap-2 text-xs font-semibold text-muted-foreground">
           <span className="rounded-full border border-border px-3 py-1">{s.type ?? "Anime"}</span>
           {s.start_date && <span className="rounded-full border border-border px-3 py-1">{new Date(s.start_date).getFullYear()}</span>}
