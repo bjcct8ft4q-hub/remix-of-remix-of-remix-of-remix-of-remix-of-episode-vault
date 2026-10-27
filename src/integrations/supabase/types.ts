@@ -85,6 +85,10 @@ export type Database = {
           series_id: string
           thumbnail_path: string | null
           title: string | null
+          season_number: number | null
+          season_episode_number: number | null
+          description: string | null
+          tmdb_episode_id: number | null
         }
         Insert: {
           air_date?: string | null
@@ -96,6 +100,10 @@ export type Database = {
           series_id: string
           thumbnail_path?: string | null
           title?: string | null
+          season_number?: number | null
+          season_episode_number?: number | null
+          description?: string | null
+          tmdb_episode_id?: number | null
         }
         Update: {
           air_date?: string | null
@@ -107,6 +115,10 @@ export type Database = {
           series_id?: string
           thumbnail_path?: string | null
           title?: string | null
+          season_number?: number | null
+          season_episode_number?: number | null
+          description?: string | null
+          tmdb_episode_id?: number | null
         }
         Relationships: [
           {
@@ -261,6 +273,7 @@ export type Database = {
       series: {
         Row: {
           anilist_id: number | null
+          tmdb_id: number | null
           banner_url: string | null
           country: string | null
           cover_url: string | null
@@ -282,6 +295,7 @@ export type Database = {
         }
         Insert: {
           anilist_id?: number | null
+          tmdb_id?: number | null
           banner_url?: string | null
           country?: string | null
           cover_url?: string | null
