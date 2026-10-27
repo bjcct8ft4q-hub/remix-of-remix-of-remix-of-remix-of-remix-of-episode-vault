@@ -62,22 +62,31 @@ export const importTmdbSeasons = createServerFn({ method: "POST" })
     if (linkError) throw new Error(`Could not save the TMDB match: ${linkError.message}`);
 
     let added = 0, updated = 0, checked = 0;
-    const seasons = (details.seasons ?? []).filter((s) => s.season_number >= 0);
+    const { data: existingCatalog, error: catalogError } = await dbAny.from("episode_catalog").select("id,number,season_number,season_episode_number,import_locked").eq("series_id", series.id).order("number", { ascending: true });
+    if (catalogError) throw new Error("Could not read existing episodes: " + catalogError.message);
+    let nextNumber = Math.max(0, ...(existingCatalog ?? []).map((row: { number: number }) => row.number)) + 1;
+    const seasons = (details.seasons ?? []).filter((s) => s.season_number >= 0).sort((a, b) => a.season_number - b.season_number);
     for (const season of seasons) {
       const seasonData = await tmdb<{ episodes?: { id: number; episode_number: number; name?: string; overview?: string; air_date?: string | null; still_path?: string | null }[] }>(`/tv/${data.tmdbId}/season/${season.season_number}`);
       for (const ep of seasonData.episodes ?? []) {
         if (!Number.isInteger(ep.episode_number) || ep.episode_number < 1) continue;
         checked++;
-        const existingResult = await dbAny.from("episode_catalog")
+        let existingResult = await dbAny.from("episode_catalog")
           .select("id,number,title,air_date,thumbnail_path,import_locked,season_number,season_episode_number,description,tmdb_episode_id")
           .eq("series_id", series.id)
           .eq("season_number", season.season_number)
           .eq("season_episode_number", ep.episode_number)
           .maybeSingle();
+        // Legacy catalogue rows have no season fields. Reuse matching episode numbers for season 1.
+        if (!existingResult.data && season.season_number === 1) {
+          existingResult = await dbAny.from("episode_catalog")
+            .select("id,number,title,air_date,thumbnail_path,import_locked,season_number,season_episode_number,description,tmdb_episode_id")
+            .eq("series_id", series.id).eq("number", ep.episode_number).is("season_number", null).maybeSingle();
+        }
         if (existingResult.error) throw new Error(`Could not read the episode catalogue: ${existingResult.error.message}. Ensure the TMDB migration has been applied.`);
         const row = {
           series_id: series.id,
-          number: ep.episode_number,
+          number: season.season_number === 1 ? ep.episode_number : nextNumber++,
           season_number: season.season_number,
           season_episode_number: ep.episode_number,
           tmdb_episode_id: ep.id,
