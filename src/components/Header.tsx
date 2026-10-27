@@ -43,7 +43,7 @@ export function Header() {
   }, [menuOpen]);
 
   return (
-    <header className={`absolute inset-x-0 top-0 z-30 flex flex-wrap items-center gap-x-3 gap-y-3 px-4 py-4 sm:px-6 ${home ? "bg-gradient-to-b from-background/70 to-transparent" : "border-b border-border/40 bg-background/90 backdrop-blur-md"}`}>
+    <header className="relative z-30 flex flex-wrap items-center gap-x-3 gap-y-3 border-b border-border bg-background px-4 py-3 sm:px-6">
       {halloween && <div className="halloween-web pointer-events-none absolute left-0 top-0 h-24 w-24" />}
       <div className="relative shrink-0">
         <Button variant="ghost" size="icon" aria-label={menuOpen ? "Close navigation" : "Open navigation"} aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)} className="text-muted-foreground hover:text-foreground">
