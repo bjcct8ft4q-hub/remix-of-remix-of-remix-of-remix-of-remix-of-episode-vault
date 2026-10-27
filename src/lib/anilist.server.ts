@@ -7,6 +7,7 @@ const SELECTIONS = {
   popular: { sort: ["POPULARITY_DESC"], status: null },
   upcoming: { sort: ["POPULARITY_DESC"], status: "NOT_YET_RELEASED" },
   airing: { sort: ["POPULARITY_DESC"], status: "RELEASING" },
+  specific: { sort: ["POPULARITY_DESC"], status: null },
 } as const;
 const STATUS: Record<string, string> = { RELEASING: "Airing", FINISHED: "Finished", NOT_YET_RELEASED: "Upcoming" };
 
@@ -19,7 +20,7 @@ type Media = {
 };
 
 
-export async function importCore(data: { selection: keyof typeof SELECTIONS }, db: SupabaseClient<Database>) {
+export async function importCore(data: { selection: keyof typeof SELECTIONS; anilistId?: number }, db: SupabaseClient<Database>) {
   const { data: claimed, error: claimError } = await db.rpc("claim_import_run");
   if (claimError) throw new Error(`Could not start import: ${claimError.message}`);
   if (!claimed) throw new Error("An import is already running or AniList asked us to wait. Try again shortly.");
@@ -39,22 +40,25 @@ export async function importCore(data: { selection: keyof typeof SELECTIONS }, d
   }
   let seriesAdded = 0, episodesAdded = 0;
   try {
+    if (data.selection === "specific" && (!Number.isInteger(data.anilistId) || !data.anilistId)) throw new Error("Choose a valid AniList title to import.");
     const key = `anilist:${data.selection}`;
-    const { data: cached } = await db.from("import_cache").select("response").eq("key", key).gt("expires_at", new Date().toISOString()).maybeSingle();
+    const { data: cached } = data.selection === "specific" ? { data: null } : await db.from("import_cache").select("response").eq("key", key).gt("expires_at", new Date().toISOString()).maybeSingle();
     let media: Media[];
     if (cached) media = cached.response as unknown as Media[];
     else {
-      const res = await fetch("https://graphql.anilist.co", { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": "Streamly/1.0 (AniList catalog sync; https://streamlyio.vercel.app)" }, body: JSON.stringify({ query: QUERY, variables: { sort: SELECTIONS[data.selection].sort, status: SELECTIONS[data.selection].status } }), signal: AbortSignal.timeout(20_000) });
+      const specificQuery = `query ($id: Int) { Media(id: $id, type: ANIME) { id title { english romaji native } description(asHtml: false) coverImage { extraLarge } bannerImage genres averageScore status episodes format season seasonYear startDate { year month day } countryOfOrigin studios(isMain: true) { nodes { name } } nextAiringEpisode { episode } } }`;
+      const res = await fetch("https://graphql.anilist.co", { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": "Streamly/1.0 (AniList catalog sync; https://streamlyio.vercel.app)" }, body: JSON.stringify(data.selection === "specific" ? { query: specificQuery, variables: { id: data.anilistId } } : { query: QUERY, variables: { sort: SELECTIONS[data.selection].sort, status: SELECTIONS[data.selection].status } }), signal: AbortSignal.timeout(20_000) });
       if (res.status === 429) {
         const wait = Number(res.headers.get("retry-after") ?? 60);
         await db.from("import_settings").update({ retry_after: new Date(Date.now() + wait * 1000).toISOString() }).eq("id", true);
         throw new Error(`AniList rate limit reached. Retry in ${wait}s.`);
       }
       if (!res.ok) throw new Error(`AniList returned ${res.status}`);
-      const json = (await res.json()) as { data?: { Page: { media: Media[] } }; errors?: { message: string }[] };
+      const json = (await res.json()) as { data?: { Page?: { media: Media[] }; Media?: Media | null }; errors?: { message: string }[] };
       if (!json.data) throw new Error(json.errors?.[0]?.message ?? "AniList returned no data");
-      media = json.data.Page.media;
-      await db.from("import_cache").upsert({ key, response: media as never, expires_at: new Date(Date.now() + 3600_000).toISOString() });
+      media = data.selection === "specific" ? (json.data.Media ? [json.data.Media] : []) : (json.data.Page?.media ?? []);
+      if (data.selection === "specific" && !media.length) throw new Error("AniList could not find that anime.");
+      if (data.selection !== "specific") await db.from("import_cache").upsert({ key, response: media as never, expires_at: new Date(Date.now() + 3600_000).toISOString() });
     }
     for (const m of media) {
       const d = m.startDate;
