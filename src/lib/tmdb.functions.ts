@@ -50,10 +50,10 @@ export const importTmdbSeasons = createServerFn({ method: "POST" })
     if (!isAdmin) throw new Error("Admins only");
 
     const db = context.supabase;
-    const { data: series, error: seriesError } = await db.from("series").select("id,title,description,start_date,cover_url,import_locked,tmdb_id").eq("id", data.seriesId).single();
+    const dbAny = db as any;
+    const { data: series, error: seriesError } = await dbAny.from("series").select("id,title,description,start_date,cover_url,import_locked,tmdb_id").eq("id", data.seriesId).single();
     if (seriesError || !series) throw new Error("The selected series could not be found.");
     const details = await tmdb<{ id: number; name: string; overview?: string; poster_path?: string | null; seasons?: { id: number; season_number: number; name: string; episode_count: number; air_date?: string | null }[] }>(`/tv/${data.tmdbId}`);
-    const dbAny = db as any;
     const currentSeries = series as typeof series & { tmdb_id?: number | null };
     if (currentSeries.tmdb_id && currentSeries.tmdb_id !== data.tmdbId) {
       throw new Error("This series is already linked to a different TMDB title. Resolve the match before changing it.");
