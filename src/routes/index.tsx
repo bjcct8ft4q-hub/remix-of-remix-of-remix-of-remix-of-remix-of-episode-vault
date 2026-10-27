@@ -156,7 +156,8 @@ function Index() {
   const { isAdmin, user } = useAuth();
   const [i, setI] = useState(0);
   const [period, setPeriod] = useState<"day" | "week" | "month">("day");
-  const popularAnime = data.filter(isCurrentPopularAnime).slice(0, 12);\n  const featured = popularAnime.slice(0, 8);
+  const popularAnime = data.filter(isCurrentPopularAnime).slice(0, 12);
+  const featured = popularAnime.slice(0, 8);
   const activeIndex = featured.length ? i % featured.length : 0;
   const current = featured[activeIndex];
 
@@ -168,6 +169,12 @@ function Index() {
 
   return (
     <main>
+      <div className="mx-auto max-w-[1900px] px-4 pt-4 sm:px-6">
+        <div role="status" className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm">
+          <span className="mt-0.5 shrink-0 text-primary" aria-hidden="true">●</span>
+          <p><span className="font-bold text-foreground">New anime on the way.</span> Series and new seasons are being added to Streamly. Check back within the next 24 hours for updates.</p>
+        </div>
+      </div>
       <section className="relative h-[64svh] min-h-[480px] max-h-[680px] overflow-hidden max-sm:min-h-[550px]">
         {current ? (
           <>
