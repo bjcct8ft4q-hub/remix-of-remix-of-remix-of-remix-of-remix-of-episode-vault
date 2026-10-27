@@ -12,9 +12,9 @@ export const Route = createFileRoute("/api/public/jobs/anilist-sync")({
         if (!settings?.enabled) return Response.json({ skipped: "automatic updates are off" });
         const { importCore } = await import("@/lib/anilist.server");
         try {
-          const trending = await importCore({ selection: "trending" });
-          const airing = await importCore({ selection: "airing" });
-          const upcoming = await importCore({ selection: "upcoming" });
+          const trending = await importCore({ selection: "trending" }, supabaseAdmin);
+          const airing = await importCore({ selection: "airing" }, supabaseAdmin);
+          const upcoming = await importCore({ selection: "upcoming" }, supabaseAdmin);
           return Response.json({ success: true, trending, airing, upcoming });
         } catch (e) {
           return Response.json({ success: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
