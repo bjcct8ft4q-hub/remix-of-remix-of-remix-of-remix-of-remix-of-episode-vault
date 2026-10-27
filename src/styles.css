@@ -97,3 +97,47 @@ html { scrollbar-width: thin; scrollbar-color: var(--primary) var(--background);
 @utility panel-pattern {
   background-image: repeating-linear-gradient(130deg, transparent 0 11px, color-mix(in oklab, var(--foreground) 3%, transparent) 11px 12px), radial-gradient(circle at 100% 0, transparent 48px, color-mix(in oklab, var(--primary) 15%, transparent) 49px, transparent 50px, transparent 80px, color-mix(in oklab, var(--primary) 12%, transparent) 81px, transparent 82px);
 }
+
+
+/* Seasonal Halloween accents. ThemeProvider removes these automatically on 1 November. */
+.halloween-effects {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  overflow: hidden;
+  pointer-events: none;
+  contain: layout paint;
+}
+.halloween-bat,
+.halloween-pumpkin,
+.halloween-spark {
+  position: absolute;
+  display: block;
+  filter: drop-shadow(0 0 10px color-mix(in oklab, var(--primary) 35%, transparent));
+  user-select: none;
+}
+.halloween-bat { font-size: 1.4rem; opacity: .75; animation: halloween-fly 15s ease-in-out infinite; }
+.halloween-bat-one { top: 19%; left: -3rem; animation-delay: -2s; }
+.halloween-bat-two { top: 43%; left: -4rem; font-size: 1rem; animation-duration: 19s; animation-delay: -9s; }
+.halloween-bat-three { top: 68%; left: -3rem; font-size: 1.2rem; animation-duration: 22s; animation-delay: -14s; }
+.halloween-pumpkin { right: 1.25rem; bottom: 1rem; font-size: 1.8rem; opacity: .8; animation: halloween-bob 3s ease-in-out infinite; }
+.halloween-spark { color: var(--primary); font-size: 1.25rem; animation: halloween-twinkle 2.8s ease-in-out infinite; }
+.halloween-spark-one { top: 25%; right: 8%; }
+.halloween-spark-two { top: 57%; left: 3%; animation-delay: -1.4s; }
+@keyframes halloween-fly {
+  0% { transform: translate3d(-5vw, 0, 0) rotate(-8deg); }
+  45% { transform: translate3d(52vw, -22px, 0) rotate(8deg); }
+  100% { transform: translate3d(110vw, 12px, 0) rotate(-4deg); }
+}
+@keyframes halloween-bob {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-8px) rotate(4deg); }
+}
+@keyframes halloween-twinkle {
+  0%, 100% { opacity: .25; transform: scale(.8); }
+  50% { opacity: .9; transform: scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .halloween-bat, .halloween-pumpkin, .halloween-spark { animation: none; }
+  .halloween-bat { display: none; }
+}
