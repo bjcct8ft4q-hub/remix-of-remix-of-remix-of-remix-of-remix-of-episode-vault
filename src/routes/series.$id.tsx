@@ -61,7 +61,7 @@ function SeriesPage() {
   const relatedSeasons = [
     ...(s?.anilist_id ? [{ id: s.id, anilistId: s.anilist_id, title: s.title, year: s.start_date ? Number(s.start_date.slice(0, 4)) : null, current: true }] : []),
     ...franchiseRelations.flatMap((relation) => {
-      const local = catalogue.find((item) => item.anilist_id === relation.anilistId);
+      const local = catalogue.find((item) => Number(item.anilist_id) === relation.anilistId);
       return local ? [{ id: local.id, anilistId: relation.anilistId, title: local.title, year: relation.year, current: false }] : [];
     }),
   ].filter((item, index, all) => all.findIndex((other) => other.id === item.id) === index)
