@@ -16,9 +16,9 @@ export function SeriesCard({ s }: { s: SeriesLite }) {
   const count = s.episodes?.[0]?.count ?? 0;
   return (
     <Link to="/series/$id" params={{ id: s.id }} className="group block min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-      <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-muted">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-md bg-background">
         {cover ? (
-          <img src={cover} alt={s.title} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" />
+          <img src={cover} alt={s.title} loading="lazy" className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03] motion-reduce:transition-none" />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground"><Film className="h-10 w-10" /></div>
         )}
