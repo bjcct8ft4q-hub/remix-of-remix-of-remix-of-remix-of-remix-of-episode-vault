@@ -29,7 +29,7 @@ export async function importCore(data: { selection: keyof typeof SELECTIONS }) {
     let media: Media[];
     if (cached) media = cached.response as unknown as Media[];
     else {
-      const res = await fetch("https://graphql.anilist.co", { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ query: QUERY, variables: { sort: SELECTIONS[data.selection].sort, status: SELECTIONS[data.selection].status } }), signal: AbortSignal.timeout(20_000) });
+      const res = await fetch("https://graphql.anilist.co", { method: "POST", headers: { "content-type": "application/json", accept: "application/json", "user-agent": "Streamly/1.0 (AniList catalog sync; https://streamlyio.vercel.app)" }, body: JSON.stringify({ query: QUERY, variables: { sort: SELECTIONS[data.selection].sort, status: SELECTIONS[data.selection].status } }), signal: AbortSignal.timeout(20_000) });
       if (res.status === 429) {
         const wait = Number(res.headers.get("retry-after") ?? 60);
         await db.from("import_settings").update({ retry_after: new Date(Date.now() + wait * 1000).toISOString() }).eq("id", true);
