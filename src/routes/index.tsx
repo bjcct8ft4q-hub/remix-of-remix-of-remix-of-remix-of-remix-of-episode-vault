@@ -205,11 +205,16 @@ function Index() {
         )}
       </section>
 
+      <div className="mx-auto max-w-[1900px] px-4 pt-5 sm:px-6">
+        <div role="status" className="flex items-center gap-3 rounded-lg border border-primary/25 bg-card/80 px-4 py-3 text-sm text-muted-foreground">
+          <span className="shrink-0 text-primary" aria-hidden="true">●</span>
+          <p><span className="font-semibold text-foreground">More anime coming soon.</span> New series and seasons are being added. Check back within 24 hours for updates.</p>
+        </div>
+      </div>
+
       <div className="mx-auto grid max-w-[1900px] items-start gap-6 px-4 pb-20 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-12">
-          <Grid title="Popular Anime Right Now" items={popularAnime} loading={isLoading} filters />
-          {popularAnime.length > 0 && <Row title="Popular Anime" items={[...popularAnime].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))} />}
-          {popularAnime.length > 0 && <Grid title="More Popular Anime" items={[...popularAnime].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)).slice(0, 6)} />}
+          <Grid title="Popular Anime" items={popularAnime} loading={isLoading} filters />
         </div>
         <div className="space-y-6">
           <aside className="relative overflow-hidden rounded-lg border border-border bg-card p-4">
