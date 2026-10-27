@@ -1,4 +1,5 @@
-import { supabaseAdmin as db } from "@/integrations/supabase/client.server";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 const QUERY = `query($sort:[MediaSort],$status:MediaStatus){Page(perPage:50){media(type:ANIME,sort:$sort,status:$status,isAdult:false){id title{english romaji native} description(asHtml:false) coverImage{extraLarge} bannerImage genres averageScore status episodes format season seasonYear startDate{year month day} countryOfOrigin studios(isMain:true){nodes{name}} nextAiringEpisode{episode}}}}`;
 const SELECTIONS = {
@@ -18,7 +19,7 @@ type Media = {
 };
 
 
-export async function importCore(data: { selection: keyof typeof SELECTIONS }) {
+export async function importCore(data: { selection: keyof typeof SELECTIONS }, db: SupabaseClient<Database>) {
   const { data: claimed } = await db.rpc("claim_import_run");
   if (!claimed) throw new Error("An import is already running or AniList asked us to wait. Try again shortly.");
   const { data: run } = await db.from("import_runs").insert({ selection: data.selection }).select("id").single();
