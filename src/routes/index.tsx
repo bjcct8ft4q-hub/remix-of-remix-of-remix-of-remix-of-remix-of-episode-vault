@@ -107,20 +107,60 @@ function Grid({ title, items, loading, filters }: { title: string; items: S[]; l
 }
 
 function Schedule() {
-  const days = Array.from({ length: 7 }, (_, k) => { const d = new Date(); d.setDate(d.getDate() + k); return d; });
+  const days = Array.from({ length: 7 }, (_, k) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + k);
+    return d;
+  });
   const [sel, setSel] = useState(0);
+  const dateKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const releases: Record<string, { title: string; detail: string; status?: "delayed" | "scheduled" }[]> = {
+    "2026-10-28": [
+      { title: "Yu-Gi-Oh! GO RUSH!!", detail: "Episode delayed · new date TBA", status: "delayed" },
+      { title: "Reincarnated as a Sword", detail: "Season 2 · Episode 5", status: "scheduled" },
+    ],
+    "2026-10-30": [
+      { title: "The Apothecary Diaries", detail: "Season 3 · Episode 5", status: "scheduled" },
+      { title: "Tokyo Revengers", detail: "Season 4 · Episode 5", status: "scheduled" },
+      { title: "TOUGEN ANKI", detail: "Nikko Kegon Falls Arc · Episode 5", status: "scheduled" },
+      { title: "JoJo's Bizarre Adventure: Steel Ball Run", detail: "Episode 7", status: "scheduled" },
+    ],
+    "2026-10-31": [
+      { title: "Black Clover", detail: "Season 2 · Episode 5", status: "scheduled" },
+    ],
+  };
+  const selectedDate = days[sel];
+  const items = releases[dateKey(selectedDate)] ?? [];
   return (
     <aside className="rounded-lg border border-border bg-card p-4">
-      <h2 className="mb-4 text-xl font-extrabold">Schedule</h2>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="text-xl font-extrabold">Upcoming Anime</h2>
+        <span className="text-xs text-muted-foreground">Next 7 days</span>
+      </div>
       <div className="grid grid-cols-7 gap-1.5 border-b border-border pb-4">
         {days.map((d, k) => (
-          <button key={k} onClick={() => setSel(k)} className="flex flex-col items-center gap-1">
+          <button key={dateKey(d)} onClick={() => setSel(k)} aria-pressed={sel === k} className="flex flex-col items-center gap-1">
             <span className={`text-[10px] font-bold uppercase ${sel === k ? "text-primary" : "text-muted-foreground"}`}>{d.toLocaleDateString("en-GB", { weekday: "short" })}</span>
             <span className={`grid h-9 w-full place-items-center rounded text-sm font-extrabold ${sel === k ? "bg-primary text-primary-foreground" : "bg-muted"}`}>{d.getDate()}</span>
           </button>
         ))}
       </div>
-      <p className="pt-4 text-sm text-muted-foreground">No episodes scheduled for this day.</p>
+      <p className="mt-3 text-xs font-semibold text-muted-foreground">{selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</p>
+      <div className="mt-2 space-y-2">
+        {items.length ? items.map((item) => (
+          <div key={item.title} className="rounded-md border border-border/70 bg-background/60 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm font-semibold leading-snug">{item.title}</p>
+              {item.status === "delayed" && <span className="shrink-0 rounded-full bg-destructive/15 px-2 py-1 text-[10px] font-bold uppercase text-destructive">Delayed</span>}
+            </div>
+            <p className={`mt-1 text-xs ${item.status === "delayed" ? "text-destructive" : "text-muted-foreground"}`}>{item.detail}</p>
+          </div>
+        )) : (
+          <p className="py-3 text-sm text-muted-foreground">No confirmed releases listed for this date yet.</p>
+        )}
+      </div>
+      <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Release dates can change by region and streaming service. Delayed titles stay marked until a new date is confirmed.</p>
     </aside>
   );
 }
