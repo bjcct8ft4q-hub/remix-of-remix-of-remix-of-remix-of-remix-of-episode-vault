@@ -73,13 +73,24 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
     if (!isAdmin) throw new Error("Admins only");
     const db = context.supabase as any;
     const detail = await animeDoc<unknown>(`/api/v2/anime/detail/?${new URLSearchParams({ detailPath: data.detailPath })}`);
-    const objects = records(detail);
     const root = (detail && typeof detail === "object" ? detail : {}) as UnknownRecord;
-    const meta = objects[0] ?? (root.data && typeof root.data === "object" ? root.data as UnknownRecord : root);
-    const title = str(meta.title, meta.name, meta.nameEn, data.title) || data.title;
-    const cover = imageUrl(meta.cover || meta.coverUrl || meta.cover_url || meta.image || meta.poster) || data.cover || null;
-    const episodeCount = num(meta.episodeCount, meta.episode_count, meta.totalEpisodes, meta.total_episodes, meta.episodes) ?? 0;
-    if (episodeCount < 1) throw new Error("AnimeDoc returned the title details but no usable episode count. No catalogue rows were changed.");
+    const dataNode = root.data && typeof root.data === "object" ? root.data as UnknownRecord : root;
+    const subject = dataNode.subject && typeof dataNode.subject === "object" ? dataNode.subject as UnknownRecord : dataNode;
+    const resource = dataNode.resource && typeof dataNode.resource === "object" ? dataNode.resource as UnknownRecord : {};
+    const rawSeasons = Array.isArray(resource.seasons) ? resource.seasons as UnknownRecord[] : [];
+    const seasons = rawSeasons.map((season, index) => ({
+      season: num(season.se, season.season, season.seasonNumber) ?? index + 1,
+      count: num(season.maxEp, season.max_ep, season.episodeCount, season.episode_count) ?? 0,
+    })).filter((season) => season.count > 0 && season.count <= 2000);
+    const title = str(subject.title, subject.name, subject.nameEn, dataNode.title, data.title) || data.title;
+    const rawCover = subject.cover && typeof subject.cover === "object" ? (subject.cover as UnknownRecord).url : subject.cover;
+    const cover = imageUrl(typeof rawCover === "string" ? rawCover : null) ||
+      imageUrl(subject.coverUrl || subject.cover_url || subject.image || subject.poster) || data.cover || null;
+    const episodeCount = seasons.length
+      ? seasons.reduce((total, season) => total + season.count, 0)
+      : num(subject.episodeCount, subject.episode_count, subject.totalEpisodes, subject.total_episodes, subject.episodes,
+          dataNode.episodeCount, dataNode.episode_count, dataNode.totalEpisodes, dataNode.total_episodes) ?? 0;
+    if (episodeCount < 1) throw new Error("AnimeDoc returned the title details, but its resource.seasons list did not contain usable maxEp episode counts. No catalogue rows were changed.");
     if (episodeCount > 2000) throw new Error("The reported episode count is unexpectedly high; import was stopped for safety.");
     const { data: existing, error: findError } = await db.from("series").select("id,import_locked").eq("title", title).maybeSingle();
     if (findError) throw new Error("Could not check the existing series: " + findError.message);
@@ -103,8 +114,20 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
     if (episodeError) throw new Error("Could not read the episode catalogue: " + episodeError.message);
     const known = new Map((current ?? []).map((row: { number: number; import_locked: boolean }) => [row.number, row.import_locked]));
     const rows = [];
-    for (let n = 1; n <= episodeCount; n++) {
-      if (!known.has(n)) rows.push({ series_id: seriesId, number: n, season_number: 1, season_episode_number: n, title: `Episode ${n}`, released: true });
+    let globalNumber = 0;
+    const seasonPlan = seasons.length ? seasons : [{ season: 1, count: episodeCount }];
+    for (const season of seasonPlan) {
+      for (let ep = 1; ep <= season.count; ep++) {
+        globalNumber++;
+        if (!known.has(globalNumber)) rows.push({
+          series_id: seriesId,
+          number: globalNumber,
+          season_number: season.season,
+          season_episode_number: ep,
+          title: `Episode ${ep}`,
+          released: true,
+        });
+      }
     }
     if (rows.length) {
       const { error } = await db.from("episode_catalog").insert(rows);
