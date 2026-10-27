@@ -20,9 +20,23 @@ type Media = {
 
 
 export async function importCore(data: { selection: keyof typeof SELECTIONS }, db: SupabaseClient<Database>) {
-  const { data: claimed } = await db.rpc("claim_import_run");
+  const { data: claimed, error: claimError } = await db.rpc("claim_import_run");
+  if (claimError) throw new Error(`Could not start import: ${claimError.message}`);
   if (!claimed) throw new Error("An import is already running or AniList asked us to wait. Try again shortly.");
-  const { data: run } = await db.from("import_runs").insert({ selection: data.selection }).select("id").single();
+
+  const { data: run, error: runError } = await db
+    .from("import_runs")
+    .insert({ selection: data.selection })
+    .select("id")
+    .single();
+  if (runError) {
+    await db.from("import_settings").update({ lock_until: null }).eq("id", true);
+    throw new Error(`Could not create import history record: ${runError.message}`);
+  }
+  if (!run?.id) {
+    await db.from("import_settings").update({ lock_until: null }).eq("id", true);
+    throw new Error("Could not create import history record: the database returned no import ID. Check import_runs permissions and RLS policies.");
+  }
   let seriesAdded = 0, episodesAdded = 0;
   try {
     const key = `anilist:${data.selection}`;
@@ -77,7 +91,7 @@ export async function importCore(data: { selection: keyof typeof SELECTIONS }, d
       if (unlocked.length) await db.from("episode_catalog").update({ released: true }).eq("series_id", seriesId).in("number", unlocked);
     }
     const now = new Date().toISOString();
-    await db.from("import_runs").update({ status: "success", finished_at: now, series_added: seriesAdded, episodes_added: episodesAdded }).eq("id", run!.id);
+    await db.from("import_runs").update({ status: "success", finished_at: now, series_added: seriesAdded, episodes_added: episodesAdded }).eq("id", run.id);
     await db.from("import_settings").update({ last_success_at: now, lock_until: null }).eq("id", true);
     return { seriesAdded, episodesAdded, processed: media.length };
   } catch (e) {
