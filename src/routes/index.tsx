@@ -199,10 +199,16 @@ function Index() {
         )}
       </section>
 
+      <div className="mx-auto max-w-[1900px] px-4 pt-5 sm:px-6">
+        <div role="status" className="flex items-center gap-3 rounded-lg border border-primary/25 bg-card/80 px-4 py-3 text-sm text-muted-foreground">
+          <span className="shrink-0 text-primary" aria-hidden="true">●</span>
+          <p><span className="font-semibold text-foreground">More anime coming soon.</span> New series and seasons are being added. Check back within 24–48 hours for updates.</p>
+        </div>
+      </div>
+
       <div className="mx-auto grid max-w-[1900px] items-start gap-6 px-4 pb-20 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-12">
           <Grid title="Latest Episodes" items={data} loading={isLoading} filters />
-          {data.length > 0 && <Row title="Popular Now" items={[...data].sort((a, b) => (b.episodes?.[0]?.count ?? 0) - (a.episodes?.[0]?.count ?? 0))} />}
           {data.length > 0 && <Grid title="Recently Added" items={[...data].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at)).slice(0, 12)} />}
           <Grid title="Popular Anime" items={popularAnime} loading={isLoading} filters />
         </div>
