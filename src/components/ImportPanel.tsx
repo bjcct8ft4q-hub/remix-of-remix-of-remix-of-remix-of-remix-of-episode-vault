@@ -4,12 +4,14 @@ import { toast } from "sonner";
 import { LoaderCircle, RefreshCw, Flame, TrendingUp, CalendarClock, Radio, Layers3, History, ChevronDown, Database, Film, CircleHelp, Search, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { importStats, runAniListImport } from "@/lib/anilist.functions";
-import { searchAnimeDoc, importAnimeDocEpisodes } from "@/lib/animedoc.functions";
+import { searchAnimeDoc, importAnimeDocEpisodes, attachEpisodeStream } from "@/lib/animedoc.functions";
+import { seriesListQuery } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 
 export function ImportPanel() {
   const qc = useQueryClient();
   const { data: s, refetch } = useQuery({ queryKey: ["import-stats"], queryFn: () => importStats() });
+  const { data: seriesOptions = [] } = useQuery(seriesListQuery());
   const [busy, setBusy] = useState<string | null>(null);
   const [history, setHistory] = useState(false);
   const [showIndividual, setShowIndividual] = useState(false);
@@ -18,6 +20,10 @@ export function ImportPanel() {
   const [searchingAnime, setSearchingAnime] = useState(false);
   const [sourceResults, setSourceResults] = useState<{ subjectId: string; detailPath: string; title: string; year: number | null; cover: string | null; episodeCount: number }[]>([]);
   const [selectedSource, setSelectedSource] = useState<{ subjectId: string; detailPath: string; title: string; cover: string | null; episodeCount: number } | null>(null);
+  const [streamSeriesId, setStreamSeriesId] = useState("");
+  const [streamEpisodeNumber, setStreamEpisodeNumber] = useState("1");
+  const [streamUrl, setStreamUrl] = useState("");
+  const [streamTitle, setStreamTitle] = useState("");
 
   const importSpecific = async () => {
     if (!selectedSource) return;
@@ -50,6 +56,27 @@ export function ImportPanel() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Jikan search failed");
     } finally { setSearchingAnime(false); }
+  };
+
+  const attachStream = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!streamSeriesId || !streamEpisodeNumber || !streamUrl.trim()) return;
+    setBusy("stream");
+    try {
+      const result = await attachEpisodeStream({ data: {
+        seriesId: streamSeriesId,
+        episodeNumber: Number(streamEpisodeNumber),
+        videoUrl: streamUrl.trim(),
+        title: streamTitle.trim() || undefined,
+      } });
+      toast.success(`${result.title} episode ${result.episodeNumber}: ${result.updated ? "stream updated" : "playable episode created"}`);
+      setStreamUrl("");
+      setStreamTitle("");
+      await qc.invalidateQueries({ queryKey: ["series"] });
+      await qc.invalidateQueries({ queryKey: ["import-stats"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not attach video URL");
+    } finally { setBusy(null); void refetch(); }
   };
 
   const run = async (selection: "trending" | "popular" | "upcoming" | "airing") => {
@@ -151,6 +178,31 @@ export function ImportPanel() {
         </form>
         {sourceResults.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{sourceResults.map((anime) => <button type="button" key={anime.subjectId} onClick={() => setSelectedSource({ subjectId: anime.subjectId, detailPath: anime.detailPath, title: anime.title, cover: anime.cover, episodeCount: anime.episodeCount })} className={`flex items-center gap-3 rounded-lg border p-2 text-left transition ${selectedSource?.subjectId === anime.subjectId ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>{anime.cover ? <img src={anime.cover} alt="" className="h-14 w-10 rounded object-cover" /> : <span className="h-14 w-10 rounded bg-muted" />}<span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{anime.title}</span><span className="text-xs text-muted-foreground">{anime.year ?? "Year unknown"} · {anime.episodeCount || "Episode count in details"} episodes · Jikan</span></span><span className="text-xs font-semibold text-primary">{selectedSource?.subjectId === anime.subjectId ? "Selected" : "Select"}</span></button>)}</div>}
         {selectedSource && <div className="mt-3 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">Ready to import <strong>{selectedSource.title}</strong> and create its episode entries.</p><Button disabled={!!busy} onClick={() => void importSpecific()}>{busy === "specific" ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Import episodes</Button></div>}
+      </div>
+
+      <div className="rounded-2xl border border-primary/25 bg-card/50 p-4 sm:p-5">
+        <div className="mb-3">
+          <h3 className="font-bold">Connect a playable video</h3>
+          <p className="mt-1 text-sm text-muted-foreground">For videos you own or are authorized to stream, add a secure HTTPS MP4, WebM, or HLS (.m3u8) URL to an imported episode. This connects the episode to Streamly’s existing player; catalogue metadata alone does not include video.</p>
+        </div>
+        <form onSubmit={(event) => void attachStream(event)} className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">Anime series
+            <select required value={streamSeriesId} onChange={(event) => setStreamSeriesId(event.target.value)} className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+              <option value="">Choose a series…</option>
+              {seriesOptions.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground">Episode number
+            <input required type="number" min="1" max="2000" value={streamEpisodeNumber} onChange={(event) => setStreamEpisodeNumber(event.target.value)} className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground" />
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-2">Video URL (HTTPS)
+            <input required type="url" value={streamUrl} onChange={(event) => setStreamUrl(event.target.value)} placeholder="https://your-authorized-host/video.m3u8" className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground" />
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-2">Episode title (optional)
+            <input value={streamTitle} onChange={(event) => setStreamTitle(event.target.value)} placeholder="Uses the imported episode title if blank" className="h-10 rounded-md border border-border bg-background px-3 text-sm text-foreground" />
+          </label>
+          <div className="sm:col-span-2"><Button type="submit" disabled={!!busy || !streamSeriesId || !streamUrl.trim()}>{busy === "stream" ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Film className="mr-2 h-4 w-4" />}Connect video to episode</Button></div>
+        </form>
       </div>
 
       <div className="rounded-2xl border border-border p-4 sm:p-5">
