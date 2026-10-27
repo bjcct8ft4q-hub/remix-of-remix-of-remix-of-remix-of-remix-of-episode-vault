@@ -5,9 +5,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 type Anime = { mal_id: number; title?: string; title_english?: string | null; episodes?: number | null; year?: number | null; aired?: { prop?: { from?: { year?: number | null } } }; images?: { jpg?: { image_url?: string | null }; webp?: { image_url?: string | null } } };
 type JikanEpisode = { episode?: string | null; title?: string | null };
 async function jikan<T>(path: string): Promise<T> {
-  const response = await fetch("https://api.jikan.moe/v4" + path, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20000) });
-  if (response.status === 429) throw new Error("Jikan is rate-limiting requests. Wait about a minute, then try again.");
-  if (!response.ok) throw new Error("Jikan returned HTTP " + response.status + ".");
+  const response = await fetch("https://api.tenrai.org/v1" + path, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(20000) });
+  if (response.status === 429) throw new Error("Tenrai is rate-limiting requests. Please wait briefly, then try again.");
+  if (!response.ok) throw new Error("Tenrai returned HTTP " + response.status + ".");
   return response.json() as Promise<T>;
 }
 async function requireAdmin(context: { supabase: any; userId: string }) {
@@ -15,13 +15,13 @@ async function requireAdmin(context: { supabase: any; userId: string }) {
   if (!data) throw new Error("Admins only");
 }
 
-// Keep the existing exported names so the current import panel remains compatible; requests now use Jikan.
+// Keep the existing exported names so the current import panel remains compatible; requests now use Tenrai.
 export const searchAnimeDoc = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i) => z.object({ query: z.string().trim().min(1).max(160) }).parse(i))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
-    const result = await jikan<{ data: Anime[] }>("/anime?q=" + encodeURIComponent(data.query) + "&limit=10&sfw=true");
+    const result = await jikan<{ data: Anime[] }>("/anime?q=" + encodeURIComponent(data.query) + "&limit=10&order_by=title&sort=asc");
     return (result.data || []).map((anime) => ({
       subjectId: String(anime.mal_id),
       detailPath: String(anime.mal_id),
@@ -38,14 +38,14 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const animeId = Number(data.subjectId);
-    if (!Number.isInteger(animeId) || animeId < 1) throw new Error("Invalid Jikan anime ID.");
+    if (!Number.isInteger(animeId) || animeId < 1) throw new Error("Invalid Tenrai anime ID.");
     const db = context.supabase as any;
     const detail = await jikan<{ data: Anime }>("/anime/" + animeId);
     const anime = detail.data;
     const title = anime.title_english || anime.title || data.title;
     const cover = anime.images?.webp?.image_url || anime.images?.jpg?.image_url || data.cover || null;
     const episodeCount = anime.episodes ?? 0;
-    if (episodeCount < 1) throw new Error("Jikan does not list an episode count for this anime, so no episode entries were created.");
+    if (episodeCount < 1) throw new Error("Tenrai does not list an episode count for this anime, so no episode entries were created.");
     if (episodeCount > 2000) throw new Error("The reported episode count is unexpectedly high; import was stopped for safety.");
     const { data: existing, error: findError } = await db.from("series").select("id,import_locked").eq("title", title).maybeSingle();
     if (findError) throw new Error("Could not check the existing series: " + findError.message);
