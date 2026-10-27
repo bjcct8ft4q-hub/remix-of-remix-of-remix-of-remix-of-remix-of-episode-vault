@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { LoaderCircle, RefreshCw, Flame, TrendingUp, CalendarClock, Radio, Layers3, History, ChevronDown, Database, Film, CircleHelp } from "lucide-react";
+import { LoaderCircle, RefreshCw, Flame, TrendingUp, CalendarClock, Radio, Layers3, History, ChevronDown, Database, Film, CircleHelp, Search, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { importStats, runAniListImport } from "@/lib/anilist.functions";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,57 @@ export function ImportPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [history, setHistory] = useState(false);
   const [showIndividual, setShowIndividual] = useState(false);
+  const [animeSearch, setAnimeSearch] = useState("");
+  const [animeResults, setAnimeResults] = useState<{ id: number; title: string; year: number | null; cover: string | null }[]>([]);
+  const [searchingAnime, setSearchingAnime] = useState(false);
+  const [selectedAnime, setSelectedAnime] = useState<{ id: number; title: string } | null>(null);
+
+  const searchAnime = async () => {
+    const term = animeSearch.trim();
+    if (!term) return;
+    setSearchingAnime(true);
+    setSelectedAnime(null);
+    try {
+      const response = await fetch("https://graphql.anilist.co", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          query: `query ($search: String) { Page(perPage: 8) { media(search: $search, type: ANIME, isAdult: false, sort: SEARCH_MATCH) { id title { english romaji } startDate { year } coverImage { medium } } } }`,
+          variables: { search: term },
+        }),
+      });
+      if (!response.ok) throw new Error("AniList search failed. Try again shortly.");
+      const json = await response.json();
+      if (json.errors?.length) throw new Error(json.errors[0].message);
+      const results = json.data?.Page?.media ?? [];
+      setAnimeResults(results.map((item: { id: number; title: { english: string | null; romaji: string }; startDate: { year: number | null }; coverImage: { medium: string | null } }) => ({
+        id: item.id, title: item.title.english || item.title.romaji, year: item.startDate.year, cover: item.coverImage.medium,
+      })));
+      if (!results.length) toast.info("No anime found for that search.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Anime search failed");
+    } finally {
+      setSearchingAnime(false);
+    }
+  };
+
+  const importSpecific = async () => {
+    if (!selectedAnime) return;
+    setBusy("specific");
+    try {
+      const result = await runAniListImport({ data: { selection: "specific", anilistId: selectedAnime.id } });
+      toast.success(`${selectedAnime.title}: ${result.seriesAdded ? "added to Streamly" : "updated"}; ${result.episodesAdded} episode entries added`);
+      qc.invalidateQueries({ queryKey: ["series"] });
+      setSelectedAnime(null);
+      setAnimeResults([]);
+      setAnimeSearch("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setBusy(null);
+      void refetch();
+    }
+  };
 
   const run = async (selection: "trending" | "popular" | "upcoming" | "airing") => {
     setBusy(selection);
@@ -96,6 +147,22 @@ export function ImportPanel() {
           <div><h3 className="font-bold">Sync status</h3><p className="mt-1 text-sm text-muted-foreground">Last successful sync</p><p className="mt-1 text-sm font-semibold">{s?.settings?.last_success_at ? new Date(s.settings.last_success_at).toLocaleString() : "No successful sync recorded"}</p></div>
           <Button variant="outline" className="w-full sm:w-fit" disabled={!!busy} onClick={toggle}>{s?.settings?.enabled ? "Turn automatic updates off" : "Turn automatic updates on"}</Button>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-primary/25 bg-card/50 p-4 sm:p-5">
+        <div className="mb-4">
+          <h3 className="font-bold">Import a specific anime or season</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Search AniList to add a missing season, sequel, or individual anime without importing an entire category.</p>
+        </div>
+        <form className="flex flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); void searchAnime(); }}>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input value={animeSearch} onChange={(event) => setAnimeSearch(event.target.value)} placeholder="Search e.g. Tokyo Ghoul √A" aria-label="Search AniList for an anime to import" className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary" />
+          </div>
+          <Button type="submit" variant="outline" disabled={searchingAnime || !animeSearch.trim()}>{searchingAnime ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Search AniList</Button>
+        </form>
+        {animeResults.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{animeResults.map((anime) => <button type="button" key={anime.id} onClick={() => setSelectedAnime({ id: anime.id, title: anime.title })} className={`flex items-center gap-3 rounded-lg border p-2 text-left transition ${selectedAnime?.id === anime.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>{anime.cover ? <img src={anime.cover} alt="" className="h-14 w-10 rounded object-cover" /> : <span className="h-14 w-10 rounded bg-muted" />}<span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{anime.title}</span><span className="text-xs text-muted-foreground">{anime.year ?? "Year unknown"} · AniList ID {anime.id}</span></span><span className="text-xs font-semibold text-primary">{selectedAnime?.id === anime.id ? "Selected" : "Select"}</span></button>)}</div>}
+        {selectedAnime && <div className="mt-3 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">Ready to import <strong>{selectedAnime.title}</strong> and its episode list.</p><Button disabled={!!busy} onClick={() => void importSpecific()}>{busy === "specific" ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Import selected anime</Button></div>}
       </div>
 
       <div className="rounded-2xl border border-border p-4 sm:p-5">
