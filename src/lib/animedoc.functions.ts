@@ -162,6 +162,64 @@ export const importAnimeDocEpisodes = createServerFn({ method: "POST" })
     };
   });
 
+
+// Search only owner-configured, authorized YouTube channels for episode uploads.
+// Required server env: YOUTUBE_API_KEY and STREAMLY_OFFICIAL_YOUTUBE_CHANNEL_IDS (comma-separated channel IDs).
+export const discoverAuthorizedYouTubeEpisodes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i) => z.object({ seriesId: z.string().uuid(), maxEpisodes: z.number().int().min(1).max(100).default(50) }).parse(i))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const apiKey = process.env.YOUTUBE_API_KEY?.trim();
+    const channelIds = (process.env.STREAMLY_OFFICIAL_YOUTUBE_CHANNEL_IDS || "").split(",").map((v) => v.trim()).filter(Boolean);
+    if (!apiKey) throw new Error("Automatic video discovery is not configured: set YOUTUBE_API_KEY in the server environment.");
+    if (!channelIds.length) throw new Error("Automatic video discovery is not configured: add official, authorized YouTube channel IDs to STREAMLY_OFFICIAL_YOUTUBE_CHANNEL_IDS.");
+    if (channelIds.some((id) => !/^UC[a-zA-Z0-9_-]{22}$/.test(id))) throw new Error("STREAMLY_OFFICIAL_YOUTUBE_CHANNEL_IDS must contain comma-separated YouTube channel IDs (UC followed by 22 characters).");
+    const db = context.supabase as any;
+    const { data: series, error: seriesError } = await db.from("series").select("id,title,total_episodes").eq("id", data.seriesId).maybeSingle();
+    if (seriesError || !series) throw new Error("Could not find that series.");
+    const { data: catalog, error: catalogError } = await db.from("episode_catalog").select("number,title,released").eq("series_id", data.seriesId).order("number");
+    if (catalogError) throw new Error("Could not read episode catalogue: " + catalogError.message);
+    const { data: playable, error: playableError } = await db.from("episodes").select("number,video_path").eq("series_id", data.seriesId);
+    if (playableError) throw new Error("Could not read existing playable episodes: " + playableError.message);
+    const present = new Set((playable || []).filter((e: {video_path?:string|null}) => !!e.video_path).map((e: {number:number}) => e.number));
+    const candidates = (catalog || []).filter((e: {number:number;released:boolean}) => e.released && !present.has(e.number)).slice(0, data.maxEpisodes);
+    let attached = 0;
+    const skipped: number[] = [];
+    for (const ep of candidates) {
+      let match: { id: { videoId?: string }; snippet: { title?: string; description?: string; channelId?: string } } | undefined;
+      for (const channelId of channelIds) {
+        const params = new URLSearchParams({ key: apiKey, part: "snippet", type: "video", maxResults: "10", channelId, q: `${series.title} episode ${ep.number}`, safeSearch: "strict", videoEmbeddable: "true" });
+        const response = await fetch("https://www.googleapis.com/youtube/v3/search?" + params.toString(), { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) {
+          if (response.status === 403) throw new Error("YouTube API rejected the request. Check YOUTUBE_API_KEY, YouTube Data API v3 access, and quota.");
+          throw new Error("YouTube search failed with HTTP " + response.status + ".");
+        }
+        const payload = await response.json() as { items?: typeof match[] };
+        const results = payload.items || [];
+        const titleTokens = series.title.toLowerCase().split(/[^a-z0-9]+/).filter((t: string) => t.length >= 3);
+        match = results.find((item) => {
+          const title = (item.snippet?.title || "").toLowerCase();
+          const hasTitle = titleTokens.some((token: string) => title.includes(token));
+          const escaped = String(ep.number).replace(/[.*+?^${}()|[\]\\]/g, "\\// Attach a stream URL that the site owner is authorised to use to an imported catalogue episode.");
+          const hasEpisode = new RegExp(`(?:episode|ep\\.?|#|part)\\s*0*${escaped}(?:\\D|$)|^0*${escaped}\\s*[-:.]`, "i").test(title);
+          return !!item.id.videoId && item.snippet.channelId === channelId && hasTitle && hasEpisode;
+        });
+        if (match) break;
+      }
+      if (!match?.id.videoId) { skipped.push(ep.number); continue; }
+      const values = { series_id: data.seriesId, number: ep.number, title: ep.title || "Episode " + ep.number, video_path: "https://www.youtube.com/embed/" + match.id.videoId };
+      const { data: old, error: oldError } = await db.from("episodes").select("id").eq("series_id", data.seriesId).eq("number", ep.number).maybeSingle();
+      if (oldError) throw new Error("Could not check episode " + ep.number + ": " + oldError.message);
+      const saved = old
+        ? await db.from("episodes").update({ video_path: values.video_path }).eq("id", old.id)
+        : await db.from("episodes").insert(values);
+      if (saved.error) throw new Error("Could not attach official video to episode " + ep.number + ": " + saved.error.message);
+      attached++;
+    }
+    return { title: series.title, scanned: candidates.length, attached, skipped };
+  });
+
 // Attach a stream URL that the site owner is authorised to use to an imported catalogue episode.
 // Direct MP4/WebM and HLS (.m3u8) URLs are supported by the existing player.
 export const attachEpisodeStream = createServerFn({ method: "POST" })
