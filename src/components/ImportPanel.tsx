@@ -16,8 +16,8 @@ export function ImportPanel() {
   const [animeSearch, setAnimeSearch] = useState("");
   const [animeResults, setAnimeResults] = useState<{ id: number; title: string; year: number | null; cover: string | null }[]>([]);
   const [searchingAnime, setSearchingAnime] = useState(false);
-  const [sourceResults, setSourceResults] = useState<{ subjectId: number; detailPath: string; title: string; year: number | null; cover: string | null; episodeCount: number }[]>([]);
-  const [selectedSource, setSelectedSource] = useState<{ subjectId: number; detailPath: string; title: string; cover: string | null; episodeCount: number } | null>(null);
+  const [sourceResults, setSourceResults] = useState<{ subjectId: string; detailPath: string; title: string; year: number | null; cover: string | null; episodeCount: number }[]>([]);
+  const [selectedSource, setSelectedSource] = useState<{ subjectId: string; detailPath: string; title: string; cover: string | null; episodeCount: number } | null>(null);
 
   const importSpecific = async () => {
     if (!selectedSource) return;
@@ -46,9 +46,9 @@ export function ImportPanel() {
     try {
       const results = await searchAnimeDoc({ data: { query: term } });
       setSourceResults(results);
-      if (!results.length) toast.info("AnimeDoc returned no matching anime.");
+      if (!results.length) toast.info("Jikan returned no matching anime.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "AnimeDoc search failed");
+      toast.error(e instanceof Error ? e.message : "Jikan search failed");
     } finally { setSearchingAnime(false); }
   };
 
@@ -140,16 +140,16 @@ export function ImportPanel() {
       <div className="rounded-2xl border border-primary/25 bg-card/50 p-4 sm:p-5">
         <div className="mb-4">
           <h3 className="font-bold">Import a specific anime or season</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Search AnimeDoc, choose a title, then import its episode catalogue. Your API key stays on the server.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Search Jikan, choose a title, then import its episode catalogue. No API key is needed.</p>
         </div>
         <form className="flex flex-col gap-2 sm:flex-row" onSubmit={(event) => { event.preventDefault(); void searchSourceAnime(); }}>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={animeSearch} onChange={(event) => setAnimeSearch(event.target.value)} placeholder="Search e.g. Tokyo Ghoul √A" aria-label="Search AnimeDoc for an anime to import" className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary" />
+            <input value={animeSearch} onChange={(event) => setAnimeSearch(event.target.value)} placeholder="Search e.g. Tokyo Ghoul √A" aria-label="Search Jikan for an anime to import" className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary" />
           </div>
-          <Button type="submit" variant="outline" disabled={searchingAnime || !animeSearch.trim()}>{searchingAnime ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Search AnimeDoc</Button>
+          <Button type="submit" variant="outline" disabled={searchingAnime || !animeSearch.trim()}>{searchingAnime ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Search Jikan</Button>
         </form>
-        {sourceResults.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{sourceResults.map((anime) => <button type="button" key={anime.subjectId} onClick={() => setSelectedSource({ subjectId: anime.subjectId, detailPath: anime.detailPath, title: anime.title, cover: anime.cover, episodeCount: anime.episodeCount })} className={`flex items-center gap-3 rounded-lg border p-2 text-left transition ${selectedSource?.subjectId === anime.subjectId ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>{anime.cover ? <img src={anime.cover} alt="" className="h-14 w-10 rounded object-cover" /> : <span className="h-14 w-10 rounded bg-muted" />}<span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{anime.title}</span><span className="text-xs text-muted-foreground">{anime.year ?? "Year unknown"} · {anime.episodeCount || "Episode count in details"} episodes · AnimeDoc</span></span><span className="text-xs font-semibold text-primary">{selectedSource?.subjectId === anime.subjectId ? "Selected" : "Select"}</span></button>)}</div>}
+        {sourceResults.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{sourceResults.map((anime) => <button type="button" key={anime.subjectId} onClick={() => setSelectedSource({ subjectId: anime.subjectId, detailPath: anime.detailPath, title: anime.title, cover: anime.cover, episodeCount: anime.episodeCount })} className={`flex items-center gap-3 rounded-lg border p-2 text-left transition ${selectedSource?.subjectId === anime.subjectId ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"}`}>{anime.cover ? <img src={anime.cover} alt="" className="h-14 w-10 rounded object-cover" /> : <span className="h-14 w-10 rounded bg-muted" />}<span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{anime.title}</span><span className="text-xs text-muted-foreground">{anime.year ?? "Year unknown"} · {anime.episodeCount || "Episode count in details"} episodes · Jikan</span></span><span className="text-xs font-semibold text-primary">{selectedSource?.subjectId === anime.subjectId ? "Selected" : "Select"}</span></button>)}</div>}
         {selectedSource && <div className="mt-3 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">Ready to import <strong>{selectedSource.title}</strong> and create its episode entries.</p><Button disabled={!!busy} onClick={() => void importSpecific()}>{busy === "specific" ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Import episodes</Button></div>}
       </div>
 
