@@ -15,8 +15,8 @@ function records(value: unknown): UnknownRecord[] {
   return [];
 }
 function str(...values: unknown[]): string {
-  const v = values.find((x) => typeof x === "string" && x.trim());
-  return typeof v === "string" ? v.trim() : "";
+  const v = values.find((x) => (typeof x === "string" && x.trim()) || (typeof x === "number" && Number.isFinite(x)));
+  return typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : "";
 }
 function num(...values: unknown[]): number | null {
   const v = values.find((x) => typeof x === "number" && Number.isFinite(x));
