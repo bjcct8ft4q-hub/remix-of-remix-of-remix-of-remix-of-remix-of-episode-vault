@@ -12,6 +12,7 @@ import { mediaError, uploadMedia, withDeadline } from "@/lib/media";
 import { uploadEpisodeVideos, validateEpisodeVideos, type AudioVersion } from "@/lib/episode-video";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { ImportPanel } from "@/components/ImportPanel";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -340,6 +341,7 @@ function Admin() {
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-40 sm:px-6 md:pt-28">
       <h1 className="border-l-4 border-primary pl-3 text-3xl font-extrabold">Admin dashboard</h1>
+      <ImportPanel />
       <SeriesForm onDone={() => qc.invalidateQueries({ queryKey: ["series"] })} />
       <div className="min-w-0">
         <h2 className="mb-3 text-xl font-extrabold">Your series</h2>
